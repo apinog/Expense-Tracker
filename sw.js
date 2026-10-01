@@ -1,6 +1,6 @@
 /* Mis gastos: funciona sin conexión y se actualiza sola.
    Cuando cambies archivos, subí también este con un número de versión nuevo. */
-const CACHE = 'mis-gastos-v8';
+const CACHE = 'mis-gastos-v10';
 const CORE = [
   './', './index.html', './manifest.json',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
@@ -40,5 +40,14 @@ self.addEventListener('fetch', e => {
         return hit || net;
       })
     );
+  }
+});
+
+// logos de comercios (favicons): primero la copia guardada
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  if (e.request.method === 'GET' && url.hostname === 'www.google.com' && url.pathname === '/s2/favicons') {
+    e.respondWith(caches.open(CACHE).then(c => c.match(e.request).then(hit =>
+      hit || fetch(e.request).then(res => { c.put(e.request, res.clone()); return res; }))));
   }
 });
