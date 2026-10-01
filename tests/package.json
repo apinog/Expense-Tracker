@@ -1,0 +1,14 @@
+{
+  "name": "mis-gastos-tests",
+  "private": true,
+  "description": "Pruebas de Mis gastos. No forman parte de la app: la app sigue sin dependencias.",
+  "scripts": {
+    "test": "node --test humo.test.js migracion.test.js",
+    "capturas": "playwright test",
+    "todo": "npm test && npm run capturas"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "jsdom": "^25.0.0"
+  }
+}

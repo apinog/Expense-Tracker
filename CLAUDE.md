@@ -22,7 +22,7 @@ App personal de presupuesto y gastos en colones y dólares. Es una PWA de un sol
 
 ## Cómo está armada
 
-- **Estado:** un objeto `S` guardado en `localStorage` con la clave `gastos_tracker_v1`. Campos: `settings`, `fx`, `cats`, `cards`, `recurring`, `budgets` (`base` y `over` por mes), `goals`, `contribs`, `expenses`, `redeems`, `merchants`, `generated`, `ui`. La versión del esquema es `v` (hoy 8).
+- **Estado:** un objeto `S` guardado en `localStorage` con la clave `gastos_tracker_v1`. Campos: `settings`, `fx`, `cats`, `cards`, `recurring`, `budgets` (`base` y `over` por mes), `goals`, `contribs`, `expenses`, `redeems`, `merchants`, `generated`, `ui`. La versión del esquema es `v` (hoy 9).
 - **Pantallas:** funciones `view*()` que devuelven HTML como texto. `render()` lo pone en `#vin`. Los eventos usan delegación con `data-act` y un `switch` en `act()`.
 - **Formularios:** hojas inferiores con `openSheet()`. Se ajustan al teclado con `visualViewport` y el botón Guardar queda fijo abajo.
 - **Layout tipo app:** `#app` es una columna fija; `#view` es el único elemento que scrollea. Encabezado y barra inferior no se mueven. No usar `position: sticky` ni `fixed` para cosas nuevas sin probar en iPhone.
