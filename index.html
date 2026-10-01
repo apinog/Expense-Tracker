@@ -18,7 +18,7 @@
   --navy:#0B1F44; --blue:#0057A8; --sky:#7FB4EA; --tint:#EAF1FA;
   --bg:#FAFBFC; --panel:#FFFFFF; --ink:#14181F; --ink2:#454C59; --mute:#757D8A; --line:#E1E5EC;
   --ok:#00796B; --warn:#B7791F; --bad:#B3261E; --gold:#B7791F;
-  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px); --sabx:max(0px,calc(var(--sab) - var(--gap,0px)));
   --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
   --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
 }
@@ -197,11 +197,11 @@ label.l{display:block;font-size:12.5px;color:var(--mute);margin:12px 0 4px}
 .grid-r label{font-size:13px;color:var(--ink2)}
 
 /* navegación inferior */
-#tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);padding-bottom:var(--sab);z-index:20}
+#tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);padding-bottom:var(--sabx);z-index:20}
 #tabs .in{display:flex}
 #tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 7px;font-size:11px;color:var(--mute);background:none;border:0}
 #tabs button.on{color:var(--blue);font-weight:600}
-#fab{position:fixed;right:max(16px,calc(50% - 264px));bottom:calc(72px + var(--sab));width:54px;height:54px;border-radius:50%;background:var(--blue);color:#fff;font-size:30px;line-height:1;border:0;box-shadow:0 6px 18px rgba(0,87,168,.38);z-index:21}
+#fab{position:fixed;right:max(16px,calc(50% - 264px));bottom:calc(72px + var(--sabx));width:54px;height:54px;border-radius:50%;background:var(--blue);color:#fff;font-size:30px;line-height:1;border:0;box-shadow:0 6px 18px rgba(0,87,168,.38);z-index:21}
 #fab.hide{display:none}
 #toast{position:fixed;left:50%;bottom:calc(140px + var(--sab));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:10px;font-size:13px;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.show{opacity:1}
@@ -253,8 +253,10 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none;background:var(--
 #fab.away{transform:translateY(96px);opacity:0;pointer-events:none}
 body.noscroll #view{overflow:hidden}
 .overlay{inset:auto;left:0;right:0;top:0;bottom:auto;height:100%;overscroll-behavior:contain}
-.sheet{max-height:calc(100% - 8px);overscroll-behavior:contain}
-.sheet .btns{position:sticky;bottom:0;margin:16px -16px calc(-18px - var(--sab));padding:10px 16px calc(12px + var(--sab));background:var(--panel);border-top:1px solid var(--line);z-index:2}
+.sheet{max-height:calc(100% - var(--sat) - 8px);display:flex;flex-direction:column;overflow:hidden;padding:0}
+.sbody{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px 16px 18px}
+.sbody:last-child{padding-bottom:calc(18px + var(--sabx))}
+.sheet>.btns{flex:none;margin:0;padding:10px 16px calc(12px + var(--sabx));background:var(--panel);border-top:1px solid var(--line)}
 button,.seg,.tile,.row,.fixrow,.cpick button,.mchips button,.qchips button{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .ic{position:relative}
 .ic img.ov{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:5px;background:#fff;border-radius:10px}
@@ -1309,7 +1311,8 @@ function fitOverlay(){
   if(vv){o.style.height=vv.height+'px';o.style.top=vv.offsetTop+'px';}
 }
 function openSheet(html){
-  $('#sheet').innerHTML='<div class="overlay" data-act="ovl"><div class="sheet" role="dialog" aria-modal="true">'+html+'</div></div>';
+  $('#sheet').innerHTML='<div class="overlay" data-act="ovl"><div class="sheet" role="dialog" aria-modal="true"><div class="sbody">'+html+'</div></div></div>';
+  var b=$$('#sheet .sbody .btns').pop(); if(b) $('#sheet .sheet').appendChild(b);
   document.body.classList.add('noscroll');
   prepMoney($('#sheet')); fitOverlay();
 }
@@ -1317,13 +1320,16 @@ function closeSheet(){
   var a=document.activeElement; if(a&&a.blur&&a!==document.body) a.blur();
   $('#sheet').innerHTML='';document.body.classList.remove('noscroll');
 }
-/* app instalada en iPhone: iOS 26 calcula el alto restando la franja de arriba y deja un espacio bajo la barra.
-   Se usa el alto real de la pantalla. */
+/* app instalada en iPhone: iOS 26 deja una franja abajo, fuera de la ventana. Se pinta del color de la barra
+   (fondo de html) y se descuenta del margen inferior para que la barra y los botones no queden más altos. */
 function fitApp(){
-  var a=document.getElementById('app'); if(!a||!navigator.standalone) return;
-  var portrait=window.innerWidth<window.innerHeight, h=portrait?screen.height:screen.width;
-  if(window.innerHeight<h){a.style.bottom='auto';a.style.height=h+'px';}
-  else{a.style.bottom='';a.style.height='';}
+  var gap=0;
+  if(navigator.standalone){
+    var portrait=window.innerWidth<window.innerHeight, g=(portrait?screen.height:screen.width)-window.innerHeight;
+    if(g>=120) return; // teclado abierto: no tocar
+    if(g>0) gap=g;
+  }
+  document.documentElement.style.setProperty('--gap',gap+'px');
 }
 fitApp(); window.addEventListener('resize',fitApp); window.addEventListener('orientationchange',function(){setTimeout(fitApp,300);});
 if(window.visualViewport){window.visualViewport.addEventListener('resize',fitOverlay);window.visualViewport.addEventListener('scroll',fitOverlay);}

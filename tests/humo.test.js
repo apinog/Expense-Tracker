@@ -33,7 +33,7 @@ function registrarGasto(t, g) {
     if (g.reimb.got != null) t.escribir('#f_rgot', g.reimb.got);
   }
   sinProblemas(t, 'el formulario de gasto');
-  t.click('#xf button[data-act="save-exp"]');
+  t.click('#sheet button[data-act="save-exp"]');
   assert.equal(t.$('#xf'), null, 'El formulario no se cerró al guardar');
 }
 
@@ -112,7 +112,7 @@ test('reembolsos, gastos con meta y fijos pendientes', function () {
   if (fijo) {
     t.click(fijo);
     assert.ok(t.$('#xf'), 'No se abrió el formulario del fijo');
-    t.click('#xf button[data-act="save-exp"]');
+    t.click('#sheet button[data-act="save-exp"]');
     assert.ok(t.app.S.expenses.some(function (e) { return e.recurId; }), 'El fijo no quedó registrado');
   }
   PESTANAS.forEach(function (p) {
