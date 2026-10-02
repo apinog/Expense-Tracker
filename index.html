@@ -261,6 +261,7 @@ button,.seg,.tile,.row,.fixrow,.cpick button,.mchips button,.qchips button{touch
 .ic{position:relative}
 .ic img.ov{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:5px;background:#fff;border-radius:10px}
 .mi{position:relative}
+.ic img.via{position:absolute;right:-4px;bottom:-4px;width:18px;height:18px;padding:0;border-radius:5px;border:1.5px solid var(--panel);object-fit:cover;background:#fff}
 .mi img.ov{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:2px;background:#fff}
 </style>
 </head>
@@ -361,6 +362,8 @@ var RECUR0=[
   {id:'r_loan',name:'Préstamo del carro',cat:'prestamo',amt:650,fee:1,cur:'USD',card:'debcrc',merchant:'Grupo Financiero CAFSA',day:1,fixed:false,intl:false,active:true}
 ];
 
+/* apps de entrega que aparecen en "¿Cómo lo pediste?" */
+var DELIVERY=['Uber Eats'];
 function clone(o){return JSON.parse(JSON.stringify(o));}
 function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
 function ym(d){return d.getFullYear()+'-'+pad(d.getMonth()+1);}
@@ -369,7 +372,7 @@ function pad(n){return String(n).padStart(2,'0');}
 function seed(){
   var start='2026-10', cur=ym(new Date());
   return {
-    v:11,
+    v:12,
     settings:{disp:'CRC',income:null,mileUSD:0.01,start:start,lastBackup:null,balDone:false},
     fx:{rate:500,ts:0,manual:false,est:true},
     cats:clone(CATS0), cards:clone(CARDS0), recurring:clone(RECUR0),
@@ -488,6 +491,10 @@ function load(){
           else out.merchants.push({id:'m11'+i+'_'+Date.now().toString(36),name:m0.name,cat:m0.cat,img:m0.img||'',site:m0.site||''});
         });
         out.v=11;
+      }
+      if((out.v||1)<12){
+        out.expenses.forEach(function(e){if(!e.via&&/^\s*uber eats\s*$/i.test(e.note||'')){e.via='Uber Eats';e.note='';}});
+        out.v=12;
       }
       if(!Array.isArray(out.redeems)) out.redeems=[];
       out.ui.seen=out.ui.seen||{}; out.ui.dismiss=out.ui.dismiss||{};
@@ -779,6 +786,7 @@ function groupData(list,rng){
     if(eg==='cat'){var ct=catById(e.cat);add(e.cat,ct?ct.emoji+' '+ct.name:'Sin categoría',v);}
     else if(eg==='card'){var cd=cardById(e.card);add(e.card,cd?cd.name:'—',v);}
     else if(eg==='merchant'){var nm=(e.merchant||'').trim();add(nm.toLowerCase()||'_',nm||'Sin comercio',v);}
+    else if(eg==='via'){add(e.via||'_local',e.via||'En el local',v);}
     else if(eg==='day'){add(e.date,String(+e.date.slice(8)),v);}
     else if(eg==='week'){var k=weekStart(e.date);add(k,shortDate(k),v);}
     else{var k2=e.date.slice(0,7);add(k2,mshort(k2),v);}
@@ -870,7 +878,7 @@ function chartSection(){
   var months2=months.replace(/ selected/,'');var mo2='';for(var j=0;j<=36;j++){var mk2=addMonths(mm0,j);mo2+='<option value="'+mk2+'"'+((c.to||m)===mk2?' selected':'')+'>'+monthLabel(mk2)+'</option>';}
   return '<section class="sec"><h2 style="margin-bottom:10px">Explorá tus datos</h2>'
    +'<div class="seg" style="margin-bottom:8px">'+[['gasto','Gasto'],['reward','Recompensas']].map(function(t){return '<button data-act="chart" data-k="measure" data-v="'+t[0]+'" class="'+(c.measure===t[0]?'on':'')+'">'+t[1]+'</button>';}).join('')+'</div>'
-   +'<div class="ctl" style="margin-bottom:6px"><div><label>Agrupar por</label><select data-set="chart.group">'+opt('cat','Categoría',c.group)+opt('card','Tarjeta',c.group)+opt('merchant','Comercio',c.group)+(c.period==='month'?opt('day','Día',c.group):'')+opt('week','Semana',c.group)+opt('month','Mes',c.group)+'</select></div>'
+   +'<div class="ctl" style="margin-bottom:6px"><div><label>Agrupar por</label><select data-set="chart.group">'+opt('cat','Categoría',c.group)+opt('card','Tarjeta',c.group)+opt('merchant','Comercio',c.group)+opt('via','App de entrega',c.group)+(c.period==='month'?opt('day','Día',c.group):'')+opt('week','Semana',c.group)+opt('month','Mes',c.group)+'</select></div>'
    +'<div><label>Gráfico</label><div class="seg">'+types.map(function(t){return '<button data-act="chart" data-k="type" data-v="'+t[0]+'" class="'+(c.type===t[0]?'on':'')+'">'+t[1]+'</button>';}).join('')+'</div></div></div>'
    +'<details class="more" data-fold="flt"'+(U().fold_flt?' open':'')+'><summary>'+(U().fold_flt?'Ocultar filtros':'Periodo y filtros')+'</summary><div class="ctl">'
    +'<div class="full"><label>Periodo</label><select data-set="chart.period">'+opt('month','Mes elegido',c.period)+opt('3m','Últimos 3 meses',c.period)+opt('6m','Últimos 6 meses',c.period)+opt('year','Año hasta este mes',c.period)+opt('all','Todo',c.period)+opt('custom','Personalizado',c.period)+'</select></div>'
@@ -1112,7 +1120,7 @@ function expListHTML(){
   var list=S.expenses.filter(function(e){
     if(e.date.slice(0,7)!==m) return false;
     if(fc!=='all'&&e.cat!==fc) return false;
-    if(q&&((e.merchant||'')+' '+(e.note||'')).toLowerCase().indexOf(q)<0) return false;
+    if(q&&((e.merchant||'')+' '+(e.via||'')+' '+(e.note||'')).toLowerCase().indexOf(q)<0) return false;
     return true;
   }).sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:(b.ts||0)-(a.ts||0);});
   if(!list.length) return '<div class="empty">No hay movimientos con estos filtros.<br>Tocá + para agregar uno.</div>';
@@ -1125,7 +1133,7 @@ function expListHTML(){
     }
     var c=catById(e.cat), cd=cardById(e.card), r=rw.get(e.id), rv=r?crcToDisp(r.final,e.rate):0;
     var other=e.cur!==disp()?(e.cur==='USD'?money(e.amt,'USD'):money(e.amt,'CRC')):'';
-    h+='<button class="row" data-act="edit-exp" data-id="'+e.id+'"><div class="ic">'+merchIc(e.merchant,c?c.emoji:'🧾')+'</div><div class="mid"><b>'+esc(e.merchant||(c?c.name:'Gasto'))+'</b><small>'+(cd?cardThumb(cd):'')+esc(c?c.name:'')+(e.recurId?' · fijo':'')+(e.goal?' · pagado con ahorro':'')+'</small></div>'
+    h+='<button class="row" data-act="edit-exp" data-id="'+e.id+'"><div class="ic">'+merchIc(e.merchant,c?c.emoji:'🧾')+(e.via?viaBadge(e.via):'')+'</div><div class="mid"><b>'+esc(e.merchant||(c?c.name:'Gasto'))+'</b><small>'+(cd?cardThumb(cd):'')+esc(c?c.name:'')+(e.via?' · '+esc(e.via):'')+(e.recurId?' · fijo':'')+(e.goal?' · pagado con ahorro':'')+'</small></div>'
       +'<div class="amt"><b class="num">'+money(vOf(e))+'</b><small>'+[other,rv>0?'<span class="rw">+'+money(rv)+'</span>':'',e.reimb?(reimbGot(e)?'<span class="rw">seguro devolvió '+money(vOf({amt:reimbGot(e),cur:e.cur,rate:e.rate}))+'</span>':'<span class="warnc">reembolso pendiente</span>'):''].filter(Boolean).join(' · ')+'</small></div></button>';
   });
   return h;
@@ -1359,7 +1367,7 @@ function expSheet(id,recurId){
   var cat0=ed?ed.cat:(rc?rc.cat:(U().lastCat&&catById(U().lastCat)?U().lastCat:'comida'));
   var c0=catById(cat0)||S.cats[0];
   var x={amt:ed?ed.amt:'',cur:ed?ed.cur:'CRC',rate:ed?ed.rate:rate(),cat:c0.id,card:ed?ed.card:null,intl:ed?!!ed.intl:!!c0.defIntl,
-    merchant:ed?(ed.merchant||''):'',note:ed?(ed.note||''):'',date:ed?ed.date:(t.slice(0,7)===m?t:m+'-01')};
+    merchant:ed?(ed.merchant||''):'',via:ed?(ed.via||''):'',note:ed?(ed.note||''):'',date:ed?ed.date:(t.slice(0,7)===m?t:m+'-01')};
   if(rc){x.amt=round2(rc.amt+(rc.fee||0));x.cur=rc.cur;x.card=rc.card;x.intl=!!rc.intl;x.merchant=rc.merchant||rc.name;if(rc.fee)x.note='Incluye '+money(rc.fee,rc.cur)+' de comisión por transferir';}
   sheetState={id:id||null,recurId:rc?rc.id:null,cardTouched:!!(ed||rc),intlTouched:!!(ed||rc),catTouched:!!(ed||rc)};
   var quick=(!ed&&!rc)?frequentMerchants():[];
@@ -1372,6 +1380,7 @@ function expSheet(id,recurId){
     +'<label class="l">Categoría</label><select id="f_cat">'+S.cats.map(function(c){return '<option value="'+c.id+'"'+(c.id===x.cat?' selected':'')+'>'+c.emoji+' '+esc(c.name)+'</option>';}).join('')+'</select>'
     +'<label class="l">Comercio</label><input id="f_merchant" list="mlist" value="'+esc(x.merchant)+'" placeholder="Elegí uno o escribí otro" autocomplete="off"><datalist id="mlist">'+merchOptions(x.cat)+'</datalist>'
     +'<div class="mchips" id="f_mchips">'+merchChipsHTML(x.cat,x.merchant)+'</div>'
+    +viaBoxHTML(x.cat,x.via)
     +'<label class="l">Método de pago</label><div class="cpick" id="f_cpick">'+S.cards.filter(function(c){return c.active!==false||(ed&&ed.card===c.id);}).map(function(c){return '<button type="button" data-act="pick-card" data-id="'+c.id+'" class="'+(c.id===x.card?'on':'')+'">'+cardThumb(c)+esc(c.name)+'</button>';}).join('')+'</div><input type="hidden" id="f_card" value="'+(x.card||'')+'">'
 
     +'<div class="two"><div><label class="l">Fecha</label><input id="f_date" type="date" value="'+x.date+'"></div><div><label class="l">Tipo de cambio</label><input id="f_rate" type="text" inputmode="decimal" value="'+x.rate+'"></div></div>'
@@ -1390,9 +1399,19 @@ function expSheet(id,recurId){
   updatePrev();
   if(!ed) setTimeout(function(){var a=$('#f_amt');if(a)a.focus();},50);
 }
+function isRest(cid){var c=catById(cid);return !!(c&&c.group==='rest');}
+function viaBoxHTML(cat,via){
+  var opts=[['','En el local']].concat(DELIVERY.map(function(d){return [d,d];}));
+  return '<div id="f_viabox" style="display:'+(isRest(cat)?'block':'none')+'"><label class="l">¿Cómo lo pediste?</label><div class="seg">'
+    +opts.map(function(o){return '<button type="button" data-act="via" data-v="'+esc(o[0])+'" class="'+(o[0]===via?'on':'')+'">'+(o[0]?merchMini(o[0]):'')+esc(o[1])+'</button>';}).join('')
+    +'</div></div><input type="hidden" id="f_via" value="'+esc(via)+'">';
+}
+function setVia(v){var f=$('#f_via');if(!f)return;f.value=v;$$('#f_viabox button').forEach(function(b){b.classList.toggle('on',b.dataset.v===v);});}
+function syncViaBox(){var vb=$('#f_viabox');if(vb)vb.style.display=isRest($('#f_cat').value)?'block':'none';}
+function viaBadge(n){var m=merchByName(n),src=mImg(m)||favUrl(m);return src?'<img class="via" src="'+src+'" alt="" onerror="this.remove()">':'';}
 function expDraft(){
   return {amt:num($('#f_amt').value)||0,cur:$('#f_cur').value,cat:$('#f_cat').value,card:$('#f_card').value,intl:$('#f_intl').checked,
-    rate:parseFloat($('#f_rate').value)||rate(),date:$('#f_date').value,merchant:$('#f_merchant').value.trim(),note:$('#f_note').value.trim(),goal:$('#f_goal')?$('#f_goal').value:'',
+    rate:parseFloat($('#f_rate').value)||rate(),date:$('#f_date').value,merchant:$('#f_merchant').value.trim(),via:($('#f_viabox')&&isRest($('#f_cat').value))?$('#f_via').value:'',note:$('#f_note').value.trim(),goal:$('#f_goal')?$('#f_goal').value:'',
     reimb:($('#f_reimb')&&$('#f_reimb').checked)?(function(){var re=num($('#f_rexp').value),rg=num($('#f_rgot').value);return {exp:isNaN(re)?null:re,got:isNaN(rg)?null:rg};})():null};
 }
 function setCardPick(id){
@@ -1425,6 +1444,7 @@ function merchantProfile(name){
 function applyProfile(e,withAmount){
   if(!sheetState.catTouched&&catById(e.cat)&&!sheetState.catLocked){$('#f_cat').value=e.cat;var mc=$('#f_mchips');if(mc)mc.innerHTML=merchChipsHTML(e.cat,$('#f_merchant').value);}
   if(!sheetState.cardTouched&&cardById(e.card)) setCardPick(e.card);
+  syncViaBox(); if(e.via) setVia(e.via);
   if(!sheetState.intlTouched) $('#f_intl').checked=!!e.intl;
   if(withAmount||!$('#f_amt').value){
     if(withAmount){$('#f_amt').value=fmtIn(e.amt);$('#f_cur').value=e.cur;$$('.seg button[data-act="cur"]').forEach(function(b){b.classList.toggle('on',b.dataset.v===e.cur);});}
@@ -1450,7 +1470,7 @@ function saveExp(){
   var f=expDraft();
   if(!(f.amt>0)){toast('Ingresá un monto mayor a cero');return;}
   if(!f.date){toast('Elegí una fecha');return;}
-  var o={date:f.date,amt:round2(f.amt),cur:f.cur,rate:f.rate,cat:f.cat,card:f.card,merchant:f.merchant,note:f.note,intl:f.intl,goal:f.goal||'',reimb:f.reimb||null};
+  var o={date:f.date,amt:round2(f.amt),cur:f.cur,rate:f.rate,cat:f.cat,card:f.card,merchant:f.merchant,via:f.via||'',note:f.note,intl:f.intl,goal:f.goal||'',reimb:f.reimb||null};
   if(sheetState.id){Object.assign(S.expenses.find(function(e){return e.id===sheetState.id;}),o);}
   else{S.expenses.push(Object.assign({id:uid(),ts:Date.now()},sheetState.recurId?{recurId:sheetState.recurId}:{},o));}
   U().lastCat=f.cat;
@@ -1681,6 +1701,7 @@ function act(name,el){
     case 'add-exp': expSheet(); break;
     case 'edit-exp': expSheet(d.id); break;
     case 'cur': $('#f_cur').value=d.v; $$('.seg button[data-act="cur"]').forEach(function(b){b.classList.toggle('on',b===el);}); updatePrev(); break;
+    case 'via': setVia(d.v); break;
     case 'use-card': setCardPick(d.id); sheetState.cardTouched=true; updatePrev(); break;
     case 'pick-card': setCardPick(d.id); sheetState.cardTouched=true; updatePrev(); break;
     case 'pick-merch':
@@ -1819,6 +1840,7 @@ document.addEventListener('input',function(e){
       var ml=$('#mlist'); if(ml) ml.innerHTML=merchOptions(t.value);
       var c=catById(t.value);
       if(!sheetState.intlTouched) $('#f_intl').checked=!!(c&&c.defIntl);
+      syncViaBox();
       autoCard(false);
     }
     if(t.id==='f_intl'){sheetState.intlTouched=true;autoCard(false);}

@@ -22,7 +22,7 @@ App personal de presupuesto y gastos en colones y dólares. Es una PWA de un sol
 
 ## Cómo está armada
 
-- **Estado:** un objeto `S` guardado en `localStorage` con la clave `gastos_tracker_v1`. Campos: `settings`, `fx`, `cats`, `cards`, `recurring`, `budgets` (`base` y `over` por mes), `goals`, `contribs`, `expenses`, `redeems`, `merchants`, `generated`, `ui`. La versión del esquema es `v` (hoy 11).
+- **Estado:** un objeto `S` guardado en `localStorage` con la clave `gastos_tracker_v1`. Campos: `settings`, `fx`, `cats`, `cards`, `recurring`, `budgets` (`base` y `over` por mes), `goals`, `contribs`, `expenses`, `redeems`, `merchants`, `generated`, `ui`. La versión del esquema es `v` (hoy 12).
 - **Pantallas:** funciones `view*()` que devuelven HTML como texto. `render()` lo pone en `#vin`. Los eventos usan delegación con `data-act` y un `switch` en `act()`.
 - **Formularios:** hojas inferiores con `openSheet()`. Se ajustan al teclado con `visualViewport` y el botón Guardar queda fijo abajo.
 - **Layout tipo app:** `#app` es una columna fija; `#view` es el único elemento que scrollea. Encabezado y barra inferior no se mueven. No usar `position: sticky` ni `fixed` para cosas nuevas sin probar en iPhone.
@@ -30,12 +30,13 @@ App personal de presupuesto y gastos en colones y dólares. Es una PWA de un sol
 
 ## Modelo del gasto
 
-`{id, ts, date, amt, cur, rate, cat, card, merchant, note, intl, recurId?, goal?, reimb?}`
+`{id, ts, date, amt, cur, rate, cat, card, merchant, via?, note, intl, recurId?, goal?, reimb?}`
 
 - `rate` es colones por dólar **al momento de registrar**. Cada gasto guarda el suyo para que el historial no cambie cuando el dólar se mueve. Los totales se convierten con ese `rate`.
 - `goal`: gasto pagado con una meta de ahorro. No cuenta contra el presupuesto y se descuenta del saldo de la meta.
 - `reimb: {exp, got}`: reembolso del seguro médico. En el presupuesto cuenta el monto menos lo recibido (`netOf()`). Las recompensas se calculan sobre el monto completo.
 - `recurId`: viene de un fijo automático.
+- `via`: app de entrega con la que se pidió (por ahora solo `'Uber Eats'`, lista `DELIVERY`). `merchant` es el restaurante. Solo se pregunta en categorías del grupo `rest`. El gráfico puede agrupar por app de entrega.
 
 ## Reglas de negocio importantes
 

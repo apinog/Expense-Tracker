@@ -27,6 +27,7 @@ function registrarGasto(t, g) {
   if (g.date) t.escribir('#f_date', g.date);
   if (g.intl) { t.$('#f_intl').checked = true; t.escribir('#f_intl', 'on'); }
   if (g.goal) t.escribir('#f_goal', g.goal);
+  if (g.via) t.click('#f_viabox button[data-v="' + g.via + '"]');
   if (g.reimb) {
     t.$('#f_reimb').checked = true; t.escribir('#f_reimb', 'on');
     t.escribir('#f_rexp', g.reimb.exp);
@@ -40,7 +41,7 @@ function registrarGasto(t, g) {
 test('arranca sin datos y sin errores', function () {
   var t = cargarApp();
   assert.deepEqual(t.errores, []);
-  assert.equal(t.app.S.v, 11);
+  assert.equal(t.app.S.v, 12);
   assert.ok(t.$('#vin').innerHTML.length > 0, 'La pantalla de inicio quedó vacía');
   sinProblemas(t, 'Inicio');
   t.cerrar();
@@ -67,6 +68,15 @@ test('registra gastos en colones y dólares y los guarda bien', function () {
   registrarGasto(t, { cat: 'super', amt: '12,500', merchant: 'Automercado', card: 'amexeco' });
   registrarGasto(t, { cat: 'online', cur: 'USD', amt: '40', merchant: 'Amazon', card: 'amexblue', intl: true });
 
+  registrarGasto(t, { cat: 'comida', amt: '9,800', merchant: 'Sushi de prueba', via: 'Uber Eats', card: 'bct' });
+  var ue = t.app.S.expenses[2];
+  assert.equal(ue.via, 'Uber Eats', 'Debe guardar la app de entrega');
+  assert.equal(ue.merchant, 'Sushi de prueba');
+  registrarGasto(t, { cat: 'super', amt: '1,000', via: 'Uber Eats' });
+  assert.equal(t.app.S.expenses[3].via, '', 'Fuera de Comida no se guarda app de entrega');
+  t.click('[data-act="tab"][data-v="exp"]');
+  assert.ok(t.$('.row img.via'), 'El pedido muestra el logo de Uber Eats');
+  t.app.S.expenses.splice(2, 2);
   var ex = t.app.S.expenses;
   assert.equal(ex.length, 2);
   assert.equal(ex[0].amt, 12500, 'num() debe leer 12,500 como doce mil quinientos');
@@ -79,7 +89,7 @@ test('registra gastos en colones y dólares y los guarda bien', function () {
   assert.equal(ex[1].intl, true);
 
   var guardado = t.guardado();
-  assert.equal(guardado.expenses.length, 2, 'Los gastos deben quedar en localStorage');
+  assert.equal(guardado.expenses.length, 4, 'Los gastos deben quedar en localStorage');
 
   // si el dólar cambia, el historial no se mueve
   t.app.S.fx.rate = fx * 2; t.app.render();
@@ -129,6 +139,7 @@ test('explorador de gráficos: todas las combinaciones', function () {
   [
     { cat: 'super', amt: '25,000', card: 'amexeco', merchant: 'Automercado' },
     { cat: 'comida', amt: '8,500', card: 'bct' },
+    { cat: 'comida', amt: '12,000', card: 'bct', merchant: 'Pizza de prueba', via: 'Uber Eats' },
     { cat: 'online', cur: 'USD', amt: '35', card: 'amexblue', intl: true },
     { cat: 'gasolina', amt: '20,000', card: 'premia', date: mesesAtras(1) },
     { cat: 'salidas', cur: 'USD', amt: '60', card: 'debusd', date: mesesAtras(2) },
@@ -141,7 +152,7 @@ test('explorador de gráficos: todas las combinaciones', function () {
   var S = t.app.S, c = S.ui.chart, n = 0;
   var medidas = ['gasto', 'reward'];
   var periodos = ['month', '3m', '6m', 'year', 'all', 'custom'];
-  var grupos = ['cat', 'card', 'merchant', 'day', 'week', 'month'];
+  var grupos = ['cat', 'card', 'merchant', 'via', 'day', 'week', 'month'];
   var filtros = [['all', 'all'], ['super', 'all'], ['all', 'amexeco'], ['viajes', 'all']];
   var esTiempo = function (g) { return ['day', 'week', 'month'].indexOf(g) >= 0; };
 

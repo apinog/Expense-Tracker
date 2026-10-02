@@ -16,6 +16,7 @@ function datosViejos(v) {
   d.expenses = [
     { id: 'e1', ts: 1, date: '2026-10-03', amt: 10000, cur: 'CRC', rate: 510, cat: 'super', card: 'amexeco', merchant: 'Vindi', note: 'compra', intl: false },
     { id: 'e2', ts: 2, date: '2026-10-05', amt: 25, cur: 'USD', rate: 505, cat: 'online', card: 'amexblue', merchant: 'Amazon', note: '', intl: true },
+    { id: 'e5', ts: 5, date: '2026-10-06', amt: 9000, cur: 'CRC', rate: 505, cat: 'comida', card: 'bct', merchant: 'Sushi de prueba', note: (v < 12 ? 'Uber Eats' : ''), intl: false, via: (v < 12 ? undefined : 'Uber Eats') },
     { id: 'e3', ts: 3, date: '2026-10-01', amt: 1000, cur: 'CRC', rate: 500, cat: 'gym', card: 'debcrc', merchant: 'Gimnasio', note: '', intl: false, recurId: 'r_gym' },
     { id: 'e4', ts: 4, date: '2026-10-01', amt: 2000, cur: 'CRC', rate: 500, cat: 'telefono', card: 'debcrc', merchant: 'Teléfono', note: '', intl: false, recurId: 'r_tel' }
   ];
@@ -68,25 +69,28 @@ function datosViejos(v) {
   return d;
 }
 
-for (var v = 1; v <= 11; v++) (function (v) {
+for (var v = 1; v <= 12; v++) (function (v) {
   test('datos de la versión ' + v + ' se conservan al abrir la app', function () {
     var viejo = datosViejos(v);
     var t = cargarApp(viejo);
     var S = clone(t.app.S); // copia: los objetos de jsdom vienen de otra ventana
     assert.deepEqual(t.errores, []);
-    assert.equal(S.v, 11, 'La versión debe quedar en 11');
+    assert.equal(S.v, 12, 'La versión debe quedar en 12');
 
     // lo del usuario sigue igual
     assert.equal(S.settings.disp, 'USD');
     assert.equal(S.settings.income, 123456);
     assert.equal(S.fx.rate, 512.34, 'El tipo de cambio fijado a mano no se toca');
     assert.equal(S.fx.manual, true);
-    assert.equal(S.expenses.length, 4);
+    assert.equal(S.expenses.length, 5);
+    var e5 = S.expenses.find(function (e) { return e.id === 'e5'; });
+    assert.equal(e5.via, 'Uber Eats', 'La nota Uber Eats pasa a app de entrega');
+    assert.equal(e5.note, '');
     ['e1', 'e2', 'e3', 'e4'].forEach(function (id, i) {
       var a = viejo.expenses[i], b = S.expenses.find(function (e) { return e.id === id; });
       assert.ok(b, 'Se perdió el gasto ' + id);
       ['date', 'amt', 'cur', 'rate', 'cat', 'card', 'note', 'intl'].forEach(function (k) {
-        assert.equal(b[k], a[k], 'Cambió ' + k + ' del gasto ' + id);
+        assert.equal(b[k], viejo.expenses.find(function (x) { return x.id === id; })[k], 'Cambió ' + k + ' del gasto ' + id);
       });
     });
     assert.deepEqual(S.contribs, viejo.contribs);
@@ -128,7 +132,7 @@ for (var v = 1; v <= 11; v++) (function (v) {
     if (v >= 5 && v < 9) assert.equal(merch('Amazon').site, 'amazon.es', 'Un sitio puesto a mano no se cambia');
     if (v < 5) assert.equal(S.expenses.find(function (e) { return e.id === 'e3'; }).merchant, 'Costa Rica Country Club');
     if (v < 6) assert.equal(S.expenses.find(function (e) { return e.id === 'e4'; }).merchant, 'Liberty Costa Rica');
-    if (v === 11) assert.deepEqual(S.expenses, viejo.expenses, 'Con la versión actual no se toca nada');
+    if (v === 12) assert.deepEqual(S.expenses, viejo.expenses, 'Con la versión actual no se toca nada');
 
     // la app se ve bien con los datos migrados
     ['home', 'exp', 'cards', 'meta', 'save', 'set'].forEach(function (p) {
@@ -141,8 +145,8 @@ for (var v = 1; v <= 11; v++) (function (v) {
     t.app.render();
     t.click('[data-act="tab"][data-v="home"]');
     var g = t.guardado();
-    assert.equal(g.v, 11);
-    assert.equal(g.expenses.length, 4);
+    assert.equal(g.v, 12);
+    assert.equal(g.expenses.length, 5);
     t.cerrar();
 
     // abrir otra vez no cambia nada
