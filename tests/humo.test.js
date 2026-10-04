@@ -238,3 +238,64 @@ test('las hojas de formulario abren sin valores rotos', function () {
   assert.deepEqual(t.errores, []);
   t.cerrar();
 });
+
+test('respaldo: aviso semanal', function () {
+  var t = cargarApp(), S = t.app.S, dia = 864e5;
+  S.expenses.push({ id: 'b1', ts: Date.now() - 3 * dia, date: S.ui.month + '-01', amt: 1000, cur: 'CRC', rate: S.fx.rate, cat: 'otros', card: 'debcrc', merchant: '', note: '', intl: false });
+  t.click('[data-act="tab"][data-v="home"]');
+  assert.ok(/Todavía no guardaste un respaldo/.test(t.$('#vin').textContent), 'Sin respaldo debe avisar');
+  S.settings.lastBackup = Date.now() - 2 * dia; t.app.render();
+  assert.ok(!t.$('#vin [data-act="export"]'), 'Con respaldo reciente no avisa');
+  S.settings.lastBackup = Date.now() - 8 * dia; t.app.render();
+  assert.ok(/último respaldo fue hace 8 días/.test(t.$('#vin').textContent), 'A la semana vuelve a avisar');
+  t.cerrar();
+});
+
+function ids(S) { return JSON.parse(JSON.stringify(S.expenses.map(function (e) { return e.id; }))); }
+
+function importar(t, datos) {
+  var inp = t.$('#impfile');
+  var f = new t.w.File([JSON.stringify(datos)], 'respaldo.json', { type: 'application/json' });
+  Object.defineProperty(inp, 'files', { value: [f], configurable: true });
+  inp.dispatchEvent(new t.w.Event('change', { bubbles: true }));
+  return new Promise(function (r) { setTimeout(r, 100); });
+}
+
+test('respaldo: importar uno viejo lo actualiza y se puede deshacer', async function () {
+  var t = cargarApp(), S = t.app.S;
+  S.expenses.push({ id: 'actual', ts: 1, date: S.ui.month + '-02', amt: 5000, cur: 'CRC', rate: S.fx.rate, cat: 'super', card: 'debcrc', merchant: 'Vindi', note: '', intl: false });
+  t.click('[data-act="tab"][data-v="set"]');
+  // respaldo de una versión vieja: sin comercios ni categoría de consultas médicas
+  var viejo = JSON.parse(JSON.stringify(S));
+  viejo.v = 3; delete viejo.merchants;
+  viejo.cats = viejo.cats.filter(function (c) { return c.id !== 'medicos'; });
+  viejo.expenses = [{ id: 'resp1', ts: 2, date: S.ui.month + '-03', amt: 7000, cur: 'CRC', rate: 500, cat: 'comida', card: 'bct', merchant: 'Starbucks', note: '', intl: false }];
+  await importar(t, viejo);
+  S = t.app.S;
+  assert.equal(S.v, 14, 'El respaldo viejo pasa por la actualización');
+  assert.deepEqual(ids(S), ['resp1']);
+  assert.ok(S.merchants.length > 0 && S.cats.some(function (c) { return c.id === 'medicos'; }));
+  t.click('[data-act="tab"][data-v="set"]');
+  assert.ok(t.$('[data-act="undo-prev"]'), 'Aparece el botón para deshacer');
+  t.click('[data-act="undo-prev"]');
+  assert.deepEqual(ids(t.app.S), ['actual'], 'Deshacer vuelve a los datos de antes');
+  // un archivo que no es respaldo no toca nada
+  t.click('[data-act="tab"][data-v="set"]');
+  await importar(t, { hola: 1 });
+  assert.deepEqual(ids(t.app.S), ['actual']);
+  assert.deepEqual(t.errores, []);
+  t.cerrar();
+});
+
+test('respaldo: borrar todo se puede deshacer', function () {
+  var t = cargarApp();
+  t.app.S.expenses.push({ id: 'x1', ts: 1, date: t.app.S.ui.month + '-02', amt: 100, cur: 'CRC', rate: 500, cat: 'otros', card: 'debcrc', merchant: '', note: '', intl: false });
+  t.click('[data-act="tab"][data-v="set"]');
+  t.click('[data-act="reset"]');
+  assert.equal(t.app.S.expenses.length, 0);
+  t.click('[data-act="tab"][data-v="set"]');
+  t.click('[data-act="undo-prev"]');
+  assert.equal(t.app.S.expenses.length, 1, 'Vuelve el gasto borrado');
+  assert.equal(t.guardado().expenses.length, 1, 'Y queda guardado');
+  t.cerrar();
+});

@@ -1010,14 +1010,15 @@ function homeSeg(){
   return '<div class="seg mini" style="display:inline-flex"><button data-act="home" data-v="month" class="'+(h==='month'?'on':'')+'">Mes</button><button data-act="home" data-v="year" class="'+(h==='year'?'on':'')+'">Año</button></div>';
 }
 function needBackup(){
-  if(S.expenses.length<5) return false;
+  if(!S.expenses.length) return false;
   var lb=S.settings.lastBackup, first=Math.min.apply(null,S.expenses.map(function(e){return e.ts||Date.now();}));
-  return lb?Date.now()-lb>30*864e5:Date.now()-first>14*864e5;
+  return lb?Date.now()-lb>7*864e5:Date.now()-first>2*864e5;
 }
+function daysAgo(ts){var n=Math.floor((Date.now()-ts)/864e5);return n<=0?'hoy':(n===1?'ayer':'hace '+n+' días');}
 function banners(m){
   var h='', cur=ym(new Date()), pm=addMonths(cur,-1);
   if(!S.settings.balDone&&!(U().dismiss.bal>Date.now())) h+='<div class="banner"><p>Cargá tus puntos y ahorros actuales para ver todo al día.</p><button class="btn sm primary" data-act="bal-sheet">Cargar</button><button class="x" data-act="dismiss" data-v="bal" aria-label="Ocultar">×</button></div>';
-  if(needBackup()&&!(U().dismiss.backup>Date.now())) h+='<div class="banner"><p>'+(S.settings.lastBackup?'Hace más de un mes que no guardás un respaldo.':'Todavía no guardaste un respaldo de tus datos.')+'</p><button class="btn sm primary" data-act="export">Respaldar</button><button class="x" data-act="dismiss" data-v="backup" aria-label="Ocultar">×</button></div>';
+  if(needBackup()&&!(U().dismiss.backup>Date.now())) h+='<div class="banner"><p>'+(S.settings.lastBackup?'Tu último respaldo fue '+daysAgo(S.settings.lastBackup)+'. Guardá uno nuevo en iCloud.':'Todavía no guardaste un respaldo de tus datos.')+'</p><button class="btn sm primary" data-act="export">Respaldar</button><button class="x" data-act="dismiss" data-v="backup" aria-label="Ocultar">×</button></div>';
   if(m===cur&&new Date().getDate()<=10&&!U().seen[pm]&&S.expenses.some(function(e){return mOf(e)===pm;}))
     h+='<div class="banner"><p>'+monthLabel(pm)+' cerró. Mirá cómo te fue y ajustá las metas.</p><button class="btn sm primary" data-act="goto-close" data-v="'+pm+'">Ver cierre</button></div>';
   return h;
@@ -1300,7 +1301,7 @@ function viewSet(){
   var stTxt={live:'En vivo',old:'Guardado, puede estar desactualizado',est:'Estimado, sin conexión todavía',manual:'Fijado por vos'}[st];
   var h='<section class="sec"><h2>General</h2>'
     +'<label class="l">Ingreso neto mensual (₡, opcional)</label><input type="number" inputmode="decimal" id="s_income" value="'+(s.income==null?'':s.income)+'" placeholder="Para ver cuánto queda sin asignar">'
-    +'<label class="l">Valor de una milla (US$)</label><input type="number" inputmode="decimal" step="0.001" id="s_mile" value="'+s.mileUSD+'">'
+    +'<label class="l">Valor de una milla (US$)</label><input type="text" inputmode="decimal" id="s_mile" value="'+s.mileUSD+'">'
     +'<label class="l">Primer mes de seguimiento</label>'+monthSelect('s_start',s.start,false)
     +'</section>';
   h+='<section class="sec"><h2>Tipo de cambio</h2><div class="kv"><span>$1 equivale a</span><b class="num">₡'+nfN.format(Math.round(f.rate))+'</b></div><p class="hint">'+stTxt+'. '+(f.src?'Fuente: '+esc(f.src)+'. ':'')+'Puede diferir un poco del tipo de cambio de tu banco.</p><button class="btn ghost" data-act="fx">Actualizar o fijar tipo de cambio</button></section>';
@@ -1315,6 +1316,7 @@ function viewSet(){
   h+='<section class="sec"><h2>Respaldo</h2><p class="hint">Tus datos viven solo en este dispositivo. '+(S.settings.lastBackup?'Último respaldo: '+new Date(S.settings.lastBackup).toLocaleDateString('es-CR',{day:'numeric',month:'long',year:'numeric'})+'. ':'Todavía no hay respaldos. ')+'En iPhone se abre el menú de compartir: elegí Guardar en Archivos.</p>'
     +'<div class="btns" style="margin-top:0"><button class="btn" data-act="export">Exportar</button><button class="btn" data-act="import-click">Importar</button></div>'
     +'<input type="file" id="impfile" accept="application/json" style="display:none">'
+    +(function(){var pv=getPrev();return pv?'<button class="btn" style="width:100%;margin-top:10px" data-act="undo-prev">Deshacer '+(pv.why==='import'?'la importación':'el borrado')+' del '+new Date(pv.ts).toLocaleDateString('es-CR',{day:'numeric',month:'long'})+'</button>':'';})()
     +'<button class="btn danger" style="width:100%;margin-top:10px" data-act="reset">Borrar todos los datos</button></section>';
   return h;
 }
@@ -1712,6 +1714,10 @@ function downloadFile(data,name,cb){
   a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
   setTimeout(function(){URL.revokeObjectURL(a.href);},3000); if(cb) cb();
 }
+/* copia de lo que había antes de importar o borrar, para poder deshacer */
+var PREVKEY=KEY+'_antes';
+function keepPrev(why){try{localStorage.setItem(PREVKEY,JSON.stringify({ts:Date.now(),why:why,data:S}));return true;}catch(e){return false;}}
+function getPrev(){try{var p=JSON.parse(localStorage.getItem(PREVKEY)||'null');return p&&p.data&&Array.isArray(p.data.expenses)?p:null;}catch(e){return null;}}
 function doExport(){
   var name='gastos-respaldo-'+ymd(new Date())+'.json';
   var prevLB=S.settings.lastBackup; S.settings.lastBackup=Date.now();
@@ -1832,7 +1838,15 @@ function act(name,el){
     case 'chart': U().chart[d.k]=d.v; fixChart(); save(); render(); break;
     case 'export': doExport(); break;
     case 'import-click': $('#impfile').click(); break;
-    case 'reset': if(confirm('Esto borra todos tus gastos, metas y ajustes de este dispositivo. ¿Continuar?')){try{localStorage.removeItem(KEY);}catch(e){}S=seed();RW=null;render();toast('Datos borrados');} break;
+    case 'reset':
+      if(!confirm('Esto borra todos tus gastos, metas y ajustes de este dispositivo. ¿Continuar?')) break;
+      if(!keepPrev('reset')&&!confirm('No hay espacio para guardar una copia y no vas a poder deshacerlo. ¿Borrar igual?')) break;
+      try{localStorage.removeItem(KEY);}catch(e){}S=seed();RW=null;save();render();toast('Datos borrados. Podés deshacerlo en Ajustes.'); break;
+    case 'undo-prev':
+      var pv=getPrev(); if(!pv) break;
+      if(!confirm('Esto vuelve a los datos que tenías el '+new Date(pv.ts).toLocaleString('es-CR',{dateStyle:'short',timeStyle:'short'})+' y reemplaza los actuales. ¿Continuar?')) break;
+      try{localStorage.setItem(KEY,JSON.stringify(pv.data));localStorage.removeItem(PREVKEY);}catch(e){toast('No se pudo deshacer');break;}
+      S=load();RW=null;render();toast('Listo, volviste a tus datos anteriores'); break;
   }
 }
 
@@ -1866,7 +1880,12 @@ document.addEventListener('change',function(e){
         var p=JSON.parse(fr.result);
         if(!p||!Array.isArray(p.expenses)||!Array.isArray(p.cards)) throw new Error('formato');
         if(!confirm('Esto reemplaza los datos actuales de este dispositivo. ¿Importar?')) return;
-        S=Object.assign(seed(),p); RW=null; save(); render(); toast('Respaldo importado');
+        if(!keepPrev('import')&&!confirm('No hay espacio para guardar una copia y no vas a poder deshacerlo. ¿Importar igual?')) return;
+        var before=localStorage.getItem(KEY);
+        localStorage.setItem(KEY,JSON.stringify(p));
+        var n=load();
+        if(!n||n.expenses.length!==p.expenses.length){if(before!=null)localStorage.setItem(KEY,before);else localStorage.removeItem(KEY);toast('No se pudo leer el respaldo. Tus datos no cambiaron.');return;}
+        S=n; RW=null; save(); render(); toast('Respaldo importado. Podés deshacerlo en Ajustes.');
       }catch(err){toast('El archivo no parece un respaldo válido');}
     };
     fr.readAsText(t.files[0]); t.value='';
