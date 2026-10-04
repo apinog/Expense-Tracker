@@ -41,7 +41,7 @@ function registrarGasto(t, g) {
 test('arranca sin datos y sin errores', function () {
   var t = cargarApp();
   assert.deepEqual(t.errores, []);
-  assert.equal(t.app.S.v, 13);
+  assert.equal(t.app.S.v, 14);
   assert.ok(t.$('#vin').innerHTML.length > 0, 'La pantalla de inicio quedó vacía');
   sinProblemas(t, 'Inicio');
   t.cerrar();
@@ -129,6 +129,34 @@ test('reembolsos, gastos con meta y fijos pendientes', function () {
     t.click('[data-act="tab"][data-v="' + p + '"]');
     sinProblemas(t, 'la pestaña ' + p + ' con reembolso y meta');
   });
+  assert.deepEqual(t.errores, []);
+  t.cerrar();
+});
+
+test('un fijo pagado antes cuenta para el mes que cubre', function () {
+  var t = cargarApp();
+  var S = t.app.S, d = new Date(), cur = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  var p = cur.split('-').map(Number), nd = new Date(p[0], p[1], 1), nm = nd.getFullYear() + '-' + String(nd.getMonth() + 1).padStart(2, '0');
+  S.ui.month = cur; t.app.render();
+  // registrar hoy la cuota del préstamo del mes siguiente
+  t.app.act('pay-fixed', { dataset: { id: 'r_loan', per: nm } });
+  assert.ok(t.$('#f_per'), 'Debe preguntar qué mes se está pagando');
+  assert.equal(t.$('#f_per').value, nm);
+  t.click('#sheet button[data-act="save-exp"]');
+  var e = S.expenses.find(function (x) { return x.recurId === 'r_loan'; });
+  assert.equal(e.per, nm, 'Guarda el mes que cubre');
+  assert.equal(e.date.slice(0, 7), cur, 'La fecha sigue siendo la del pago');
+  assert.ok(t.app.monthStats(nm).ex.some(function (x) { return x.id === e.id; }), 'Cuenta en el mes que cubre');
+  assert.ok(!t.app.monthStats(cur).ex.some(function (x) { return x.id === e.id; }), 'No cuenta en el mes en que se pagó');
+  // en el mes siguiente el préstamo aparece pagado
+  S.ui.month = nm; S.ui.tab = 'home'; t.app.render();
+  var rows = Array.prototype.map.call(t.doc.querySelectorAll('.fixrow'), function (r) { return r.textContent; });
+  assert.ok(rows.some(function (x) { return /Préstamo del carro/.test(x) && /Pagado/.test(x); }), 'El préstamo sale pagado en el mes que cubre');
+  // los fijos muestran su fecha
+  S.ui.month = cur; t.app.render();
+  assert.ok(/Vence el|Venció el|Vence hoy|Se cobra solo el/.test(t.$('#vin').textContent), 'Los pendientes muestran la fecha');
+  var p2 = problemas(t.doc.body);
+  assert.deepEqual(p2, [], p2.join('\n'));
   assert.deepEqual(t.errores, []);
   t.cerrar();
 });

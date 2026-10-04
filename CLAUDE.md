@@ -22,7 +22,7 @@ App personal de presupuesto y gastos en colones y dólares. Es una PWA de un sol
 
 ## Cómo está armada
 
-- **Estado:** un objeto `S` guardado en `localStorage` con la clave `gastos_tracker_v1`. Campos: `settings`, `fx`, `cats`, `cards`, `recurring`, `budgets` (`base` y `over` por mes), `goals`, `contribs`, `expenses`, `redeems`, `merchants`, `generated`, `ui`. La versión del esquema es `v` (hoy 13).
+- **Estado:** un objeto `S` guardado en `localStorage` con la clave `gastos_tracker_v1`. Campos: `settings`, `fx`, `cats`, `cards`, `recurring`, `budgets` (`base` y `over` por mes), `goals`, `contribs`, `expenses`, `redeems`, `merchants`, `generated`, `ui`. La versión del esquema es `v` (hoy 14).
 - **Pantallas:** funciones `view*()` que devuelven HTML como texto. `render()` lo pone en `#vin`. Los eventos usan delegación con `data-act` y un `switch` en `act()`.
 - **Formularios:** hojas inferiores con `openSheet()`. Se ajustan al teclado con `visualViewport` y el botón Guardar queda fijo abajo.
 - **Layout tipo app:** `#app` es una columna fija; `#view` es el único elemento que scrollea. Encabezado y barra inferior no se mueven. No usar `position: sticky` ni `fixed` para cosas nuevas sin probar en iPhone.
@@ -30,12 +30,13 @@ App personal de presupuesto y gastos en colones y dólares. Es una PWA de un sol
 
 ## Modelo del gasto
 
-`{id, ts, date, amt, cur, rate, cat, card, merchant, via?, note, intl, recurId?, goal?, reimb?}`
+`{id, ts, date, amt, cur, rate, cat, card, merchant, via?, note, intl, recurId?, per?, goal?, reimb?}`
 
 - `rate` es colones por dólar **al momento de registrar**. Cada gasto guarda el suyo para que el historial no cambie cuando el dólar se mueve. Los totales se convierten con ese `rate`.
 - `goal`: gasto pagado con una meta de ahorro. No cuenta contra el presupuesto y se descuenta del saldo de la meta.
 - `reimb: {exp, got}`: reembolso del seguro médico. En el presupuesto cuenta el monto menos lo recibido (`netOf()`). Las recompensas se calculan sobre el monto completo.
 - `recurId`: viene de un fijo automático.
+- `per`: mes (`YYYY-MM`) que cubre un fijo. Si se paga antes (el préstamo se paga una semana antes del día 2), cuenta para ese mes. `mOf(e)` da el mes de un gasto para presupuesto, listas y gráficos; los totales por tarjeta y los topes de recompensas siguen la fecha real.
 - `via`: app de entrega con la que se pidió (por ahora solo `'Uber Eats'`, lista `DELIVERY`). `merchant` es el restaurante. Solo se pregunta en categorías del grupo `rest`. El gráfico puede agrupar por app de entrega.
 
 ## Reglas de negocio importantes
@@ -43,7 +44,7 @@ App personal de presupuesto y gastos en colones y dólares. Es una PWA de un sol
 - **Moneda:** colones y dólares. Un interruptor cambia lo que se muestra. Presupuestos y metas guardan su moneda original.
 - **Tipo de cambio:** primero `api.hacienda.go.cr/indicadores/tc/dolar` (referencia BCCR, venta), luego `open.er-api.com`, luego `api.exchangerate-api.com`. Se refresca cada 6 horas. Si falla, usa el último guardado. El usuario también puede fijarlo a mano.
 - **Recompensas:** cada tarjeta tiene `type` (`cashback`, `miles` o `none`) y tasas por grupo de comercio (`super`, `salud`, `clinicas`, `rest`, `mascotas`, `gasolina`, `viajes`, `entret`, `tiendas`, `otros`), más una tasa `intl` para compras del exterior. Hay topes mensual y anual. `rewards()` los aplica por gasto. `bestCards()` sugiere la tarjeta que más rinde. El saldo estimado es saldo inicial + ganado − canjes. La Gana Premios da 1 milla por dólar (confirmado por el usuario); el valor de la milla en dinero no se sabe todavía y usa el mismo `mileUSD` que la Premia.
-- **Fijos automáticos (`recurring`):** NO se agregan solos. Aparecen como pendientes y el usuario los registra uno por uno cuando los paga. El préstamo tiene un campo `fee` para la comisión de transferencia.
+- **Fijos automáticos (`recurring`):** `day` es el día límite de pago, o el día en que se cobra solo si `auto`. La lista de pendientes va ordenada por fecha y avisa a 3 días; la cuota del mes siguiente aparece `LEAD` (10) días antes. NO se agregan solos. Aparecen como pendientes y el usuario los registra uno por uno cuando los paga. El préstamo tiene un campo `fee` para la comisión de transferencia.
 - **Comercios:** en el formulario solo se muestran los de la categoría elegida. Logo: imagen propia primero, después el favicon del `site` del comercio, después las iniciales.
 - **Inicio:** vista Mes y Año. Arriba va lo disponible para gastos variables, con una marca de cuánto del mes ya pasó. Incluye ideas automáticas, mosaicos de categorías en dos columnas, fijos del mes, reembolsos pendientes, ahorro, una tabla plegable de meta contra gasto y un explorador de gráficos propio en SVG. Los primeros días del mes aparece el cierre del mes anterior, con sugerencias de metas.
 
