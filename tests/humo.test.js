@@ -41,7 +41,7 @@ function registrarGasto(t, g) {
 test('arranca sin datos y sin errores', function () {
   var t = cargarApp();
   assert.deepEqual(t.errores, []);
-  assert.equal(t.app.S.v, 14);
+  assert.equal(t.app.S.v, 15);
   assert.ok(t.$('#vin').innerHTML.length > 0, 'La pantalla de inicio quedó vacía');
   sinProblemas(t, 'Inicio');
   t.cerrar();
@@ -239,6 +239,18 @@ test('las hojas de formulario abren sin valores rotos', function () {
   t.cerrar();
 });
 
+test('tope anual en millas de la Gane Premios', function () {
+  var t = cargarApp(), S = t.app.S, y = S.ui.month.slice(0, 4);
+  S.expenses.push({ id: 'g1', ts: 1, date: y + '-01-10', amt: 20000, cur: 'USD', rate: 500, cat: 'otros', card: 'gana', merchant: '', note: '', intl: false });
+  S.expenses.push({ id: 'g2', ts: 2, date: y + '-02-10', amt: 10000, cur: 'USD', rate: 500, cat: 'otros', card: 'gana', merchant: '', note: '', intl: false });
+  t.app.act('disp', { dataset: { v: 'CRC' } }); // guarda y recalcula
+  var rw = t.app.rewards(), tot = rw.get('g1').miles + rw.get('g2').miles;
+  assert.equal(Math.round(tot), 25000, 'No pasa de 25,000 millas al año');
+  t.click('[data-act="tab"][data-v="cards"]');
+  assert.ok(/Gane Premios Gold/.test(t.$('#vin').textContent));
+  t.cerrar();
+});
+
 test('respaldo: aviso semanal', function () {
   var t = cargarApp(), S = t.app.S, dia = 864e5;
   S.expenses.push({ id: 'b1', ts: Date.now() - 3 * dia, date: S.ui.month + '-01', amt: 1000, cur: 'CRC', rate: S.fx.rate, cat: 'otros', card: 'debcrc', merchant: '', note: '', intl: false });
@@ -272,7 +284,7 @@ test('respaldo: importar uno viejo lo actualiza y se puede deshacer', async func
   viejo.expenses = [{ id: 'resp1', ts: 2, date: S.ui.month + '-03', amt: 7000, cur: 'CRC', rate: 500, cat: 'comida', card: 'bct', merchant: 'Starbucks', note: '', intl: false }];
   await importar(t, viejo);
   S = t.app.S;
-  assert.equal(S.v, 14, 'El respaldo viejo pasa por la actualización');
+  assert.equal(S.v, 15, 'El respaldo viejo pasa por la actualización');
   assert.deepEqual(ids(S), ['resp1']);
   assert.ok(S.merchants.length > 0 && S.cats.some(function (c) { return c.id === 'medicos'; }));
   t.click('[data-act="tab"][data-v="set"]');

@@ -59,7 +59,7 @@ function datosViejos(v) {
       d.merchants = d.merchants.filter(function (m) { return !/^(Hospital|Magna|Laboratorios)/.test(m.name); });
       d.merchants.forEach(function (m) { if (m.name === 'Automercado' || m.name === 'Farmacia Americana') m.img = ''; });
     }
-    d.cards.forEach(function (c) { if (c.id === 'gana') { c.type = 'cashback'; c.rates = { otros: 0.5 }; c.placeholder = true; } });
+    d.cards.forEach(function (c) { if (c.id === 'gana') { c.type = 'cashback'; c.rates = { otros: 0.5 }; c.placeholder = true; c.name = 'Gana Premios Gold'; c.img = ''; c.minRedeem = 0; c.capYear = null; } });
   }
   if (v < 11 && d.merchants) {
     var nuevos = ['Nova Cinemas', 'Maluco', 'Uber Eats', 'EGS Escazú', "Dick's Sporting Goods", 'Delta Air Lines', 'ChatGPT'];
@@ -71,13 +71,13 @@ function datosViejos(v) {
   return d;
 }
 
-for (var v = 1; v <= 14; v++) (function (v) {
+for (var v = 1; v <= 15; v++) (function (v) {
   test('datos de la versión ' + v + ' se conservan al abrir la app', function () {
     var viejo = datosViejos(v);
     var t = cargarApp(viejo);
     var S = clone(t.app.S); // copia: los objetos de jsdom vienen de otra ventana
     assert.deepEqual(t.errores, []);
-    assert.equal(S.v, 14, 'La versión debe quedar en 14');
+    assert.equal(S.v, 15, 'La versión debe quedar en 15');
 
     // lo del usuario sigue igual
     assert.equal(S.settings.disp, 'USD');
@@ -138,10 +138,11 @@ for (var v = 1; v <= 14; v++) (function (v) {
     assert.equal(merch('Hospital Clínica Bíblica').img, 'm:biblica');
     var gana = S.cards.find(function (c) { return c.id === 'gana'; });
     assert.equal(gana.type, 'miles'); assert.equal(gana.rates.otros, 1); assert.ok(!gana.placeholder);
+    assert.equal(gana.name, 'Gane Premios Gold'); assert.equal(gana.img, 'cards/gane-premios.jpg'); assert.equal(gana.minRedeem, 1000); assert.equal(gana.capYear, 25000);
     if (v >= 5 && v < 9) assert.equal(merch('Amazon').site, 'amazon.es', 'Un sitio puesto a mano no se cambia');
     if (v < 5) assert.equal(S.expenses.find(function (e) { return e.id === 'e3'; }).merchant, 'Costa Rica Country Club');
     if (v < 6) assert.equal(S.expenses.find(function (e) { return e.id === 'e4'; }).merchant, 'Liberty Costa Rica');
-    if (v === 14) assert.deepEqual(S.expenses, viejo.expenses, 'Con la versión actual no se toca nada');
+    if (v === 15) assert.deepEqual(S.expenses, viejo.expenses, 'Con la versión actual no se toca nada');
 
     // la app se ve bien con los datos migrados
     ['home', 'exp', 'cards', 'meta', 'save', 'set'].forEach(function (p) {
@@ -154,7 +155,7 @@ for (var v = 1; v <= 14; v++) (function (v) {
     t.app.render();
     t.click('[data-act="tab"][data-v="home"]');
     var g = t.guardado();
-    assert.equal(g.v, 14);
+    assert.equal(g.v, 15);
     assert.equal(g.expenses.length, 5);
     t.cerrar();
 
