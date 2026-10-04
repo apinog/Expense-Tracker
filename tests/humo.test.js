@@ -41,7 +41,7 @@ function registrarGasto(t, g) {
 test('arranca sin datos y sin errores', function () {
   var t = cargarApp();
   assert.deepEqual(t.errores, []);
-  assert.equal(t.app.S.v, 15);
+  assert.equal(t.app.S.v, 16);
   assert.ok(t.$('#vin').innerHTML.length > 0, 'La pantalla de inicio quedó vacía');
   sinProblemas(t, 'Inicio');
   t.cerrar();
@@ -251,6 +251,62 @@ test('tope anual en millas de la Gane Premios', function () {
   t.cerrar();
 });
 
+function pegarAP(t, texto) {
+  t.click('#fab');
+  t.click('[data-act="ap-paste"]'); // en jsdom no hay portapapeles: aparece el campo para pegar a mano
+  t.escribir('#ap_txt', texto);
+}
+
+test('Apple Pay: pegar una compra llena el formulario', function () {
+  var t = cargarApp(), S = t.app.S;
+  pegarAP(t, 'Mis gastos|₡15,000.00|AUTOMERCADO ESCAZU|AMEX CLASICO ECONOMIA para Google y Apple');
+  assert.equal(t.$('#f_amt').value, '15,000');
+  assert.equal(t.$('#f_cur').value, 'CRC');
+  assert.equal(t.$('#f_merchant').value, 'Automercado');
+  assert.equal(t.$('#f_cat').value, 'super', 'Toma la categoría del comercio');
+  assert.equal(t.$('#f_card').value, 'amexeco');
+  t.click('#sheet button[data-act="save-exp"]');
+  var e = S.expenses[S.expenses.length - 1];
+  assert.equal(e.amt, 15000); assert.equal(e.merchant, 'Automercado'); assert.equal(e.card, 'amexeco');
+
+  // dólares con centavos, débito en dólares
+  pegarAP(t, 'Mis gastos|$12.50|NIKE.COM|Visa Débito');
+  assert.equal(t.$('#f_cur').value, 'USD');
+  assert.equal(t.$('#f_merchant').value, 'Nike');
+  assert.equal(t.$('#f_card').value, 'debusd');
+  t.click('#sheet [data-act="cancel"]');
+
+  // comercio nuevo: se escribe bonito y lo que el usuario corrige se recuerda
+  pegarAP(t, 'Mis gastos|₡4.500,00|SODA LA PRUEBA SA|Tarjeta de Crédito Cash Back');
+  assert.equal(t.$('#f_amt').value, '4,500');
+  assert.equal(t.$('#f_merchant').value, 'Soda La Prueba Sa');
+  assert.equal(t.$('#f_card').value, 'bct');
+  t.escribir('#f_merchant', 'Soda La Prueba');
+  t.click('#sheet button[data-act="save-exp"]');
+  pegarAP(t, 'Mis gastos|₡3,000|SODA LA PRUEBA SA|Tarjeta de Crédito Cash Back');
+  assert.equal(t.$('#f_merchant').value, 'Soda La Prueba', 'Recuerda el nombre corregido');
+  t.click('#sheet [data-act="cancel"]');
+
+  // un texto que no es del atajo no toca nada
+  pegarAP(t, 'hola');
+  assert.equal(t.$('#f_merchant').value, '');
+  t.click('#sheet [data-act="cancel"]');
+  assert.deepEqual(t.errores, []);
+  t.cerrar();
+});
+
+test('la Gane Premios queda de última opción', function () {
+  var t = cargarApp();
+  t.click('#fab');
+  t.escribir('#f_cat', 'otros');
+  t.escribir('#f_amt', '100,000');
+  assert.notEqual(t.$('#f_card').value, 'gana', 'No se elige sola');
+  assert.ok(!/Gane/.test(t.$('#prev').textContent), 'No aparece como mejor opción');
+  var btns = t.doc.querySelectorAll('#f_cpick button');
+  assert.equal(btns[btns.length - 1].dataset.id, 'gana', 'Está de última en la lista');
+  t.cerrar();
+});
+
 test('respaldo: aviso semanal', function () {
   var t = cargarApp(), S = t.app.S, dia = 864e5;
   S.expenses.push({ id: 'b1', ts: Date.now() - 3 * dia, date: S.ui.month + '-01', amt: 1000, cur: 'CRC', rate: S.fx.rate, cat: 'otros', card: 'debcrc', merchant: '', note: '', intl: false });
@@ -284,7 +340,7 @@ test('respaldo: importar uno viejo lo actualiza y se puede deshacer', async func
   viejo.expenses = [{ id: 'resp1', ts: 2, date: S.ui.month + '-03', amt: 7000, cur: 'CRC', rate: 500, cat: 'comida', card: 'bct', merchant: 'Starbucks', note: '', intl: false }];
   await importar(t, viejo);
   S = t.app.S;
-  assert.equal(S.v, 15, 'El respaldo viejo pasa por la actualización');
+  assert.equal(S.v, 16, 'El respaldo viejo pasa por la actualización');
   assert.deepEqual(ids(S), ['resp1']);
   assert.ok(S.merchants.length > 0 && S.cats.some(function (c) { return c.id === 'medicos'; }));
   t.click('[data-act="tab"][data-v="set"]');
