@@ -1470,11 +1470,11 @@ function viaBoxHTML(cat,via){
 function setVia(v){var f=$('#f_via');if(!f)return;f.value=v;$$('#f_viabox button').forEach(function(b){b.classList.toggle('on',b.dataset.v===v);});}
 function syncViaBox(){var vb=$('#f_viabox');if(vb)vb.style.display=isRest($('#f_cat').value)?'block':'none';}
 function viaBadge(n){var m=merchByName(n),src=mImg(m)||favUrl(m);return src?'<img class="via" src="'+src+'" alt="" onerror="this.remove()">':'';}
-/* Apple Pay: el atajo de Wallet copia "Mis gastos|monto|comercio|tarjeta" y aquí se pega */
+/* Apple Pay: el atajo de Wallet copia "Expense-Tracker|monto|comercio|tarjeta" y aquí se pega */
 var WALLET=[['amex clasico economia','amexeco'],['amex clasica blue','amexblue'],['gane premios','gana'],['premia travel','premia'],['cash back','bct']];
 function normTxt(t){return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();}
 function parseAP(txt){
-  var p=String(txt||'').split('|'); if(p.length<4||!/mis gastos/i.test(p[0])) return null;
+  var p=String(txt||'').split('|'); if(p.length<4||!/expense.?tracker|mis gastos/i.test(p[0])) return null;
   var a=p[1], cur=/\$|usd/i.test(a)?'USD':'CRC', n=a.replace(/[^\d.,]/g,''), i=Math.max(n.lastIndexOf('.'),n.lastIndexOf(','));
   if(i>=0&&n.length-i-1<=2&&(n.length-i-1===2||/[.,].*[.,]/.test(n))) n=n.slice(0,i).replace(/[.,]/g,'')+'.'+n.slice(i+1); else n=n.replace(/[.,]/g,'');
   var amt=parseFloat(n); if(!(amt>0)) return null;

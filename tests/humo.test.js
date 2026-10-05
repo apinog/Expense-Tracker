@@ -270,7 +270,7 @@ test('Apple Pay: pegar una compra llena el formulario', function () {
   assert.equal(e.amt, 15000); assert.equal(e.merchant, 'Automercado'); assert.equal(e.card, 'amexeco');
 
   // dólares con centavos, débito en dólares
-  pegarAP(t, 'Mis gastos|$12.50|NIKE.COM|Visa Débito');
+  pegarAP(t, 'Expense-Tracker|$12.50|NIKE.COM|Visa Débito');
   assert.equal(t.$('#f_cur').value, 'USD');
   assert.equal(t.$('#f_merchant').value, 'Nike');
   assert.equal(t.$('#f_card').value, 'debusd');
