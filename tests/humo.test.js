@@ -41,7 +41,7 @@ function registrarGasto(t, g) {
 test('arranca sin datos y sin errores', function () {
   var t = cargarApp();
   assert.deepEqual(t.errores, []);
-  assert.equal(t.app.S.v, 16);
+  assert.equal(t.app.S.v, 17);
   assert.ok(t.$('#vin').innerHTML.length > 0, 'La pantalla de inicio quedó vacía');
   sinProblemas(t, 'Inicio');
   t.cerrar();
@@ -151,10 +151,10 @@ test('un fijo pagado antes cuenta para el mes que cubre', function () {
   // en el mes siguiente el préstamo aparece pagado
   S.ui.month = nm; S.ui.tab = 'home'; t.app.render();
   var rows = Array.prototype.map.call(t.doc.querySelectorAll('.fixrow'), function (r) { return r.textContent; });
-  assert.ok(rows.some(function (x) { return /Préstamo del carro/.test(x) && /Pagado/.test(x); }), 'El préstamo sale pagado en el mes que cubre');
+  assert.ok(rows.some(function (x) { return /Car loan/.test(x) && /Paid/.test(x); }), 'El préstamo sale pagado en el mes que cubre');
   // los fijos muestran su fecha
   S.ui.month = cur; t.app.render();
-  assert.ok(/Vence el|Venció el|Vence hoy|Se cobra solo el/.test(t.$('#vin').textContent), 'Los pendientes muestran la fecha');
+  assert.ok(/Due |Overdue since|Due today|Auto-pay on/.test(t.$('#vin').textContent), 'Los pendientes muestran la fecha');
   var p2 = problemas(t.doc.body);
   assert.deepEqual(p2, [], p2.join('\n'));
   assert.deepEqual(t.errores, []);
@@ -311,11 +311,11 @@ test('respaldo: aviso semanal', function () {
   var t = cargarApp(), S = t.app.S, dia = 864e5;
   S.expenses.push({ id: 'b1', ts: Date.now() - 3 * dia, date: S.ui.month + '-01', amt: 1000, cur: 'CRC', rate: S.fx.rate, cat: 'otros', card: 'debcrc', merchant: '', note: '', intl: false });
   t.click('[data-act="tab"][data-v="home"]');
-  assert.ok(/Todavía no guardaste un respaldo/.test(t.$('#vin').textContent), 'Sin respaldo debe avisar');
+  assert.ok(/You have not backed up/.test(t.$('#vin').textContent), 'Sin respaldo debe avisar');
   S.settings.lastBackup = Date.now() - 2 * dia; t.app.render();
   assert.ok(!t.$('#vin [data-act="export"]'), 'Con respaldo reciente no avisa');
   S.settings.lastBackup = Date.now() - 8 * dia; t.app.render();
-  assert.ok(/último respaldo fue hace 8 días/.test(t.$('#vin').textContent), 'A la semana vuelve a avisar');
+  assert.ok(/last backup was 8 days ago/.test(t.$('#vin').textContent), 'A la semana vuelve a avisar');
   t.cerrar();
 });
 
@@ -340,7 +340,7 @@ test('respaldo: importar uno viejo lo actualiza y se puede deshacer', async func
   viejo.expenses = [{ id: 'resp1', ts: 2, date: S.ui.month + '-03', amt: 7000, cur: 'CRC', rate: 500, cat: 'comida', card: 'bct', merchant: 'Starbucks', note: '', intl: false }];
   await importar(t, viejo);
   S = t.app.S;
-  assert.equal(S.v, 16, 'El respaldo viejo pasa por la actualización');
+  assert.equal(S.v, 17, 'El respaldo viejo pasa por la actualización');
   assert.deepEqual(ids(S), ['resp1']);
   assert.ok(S.merchants.length > 0 && S.cats.some(function (c) { return c.id === 'medicos'; }));
   t.click('[data-act="tab"][data-v="set"]');

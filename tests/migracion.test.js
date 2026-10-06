@@ -67,17 +67,25 @@ function datosViejos(v) {
   }
   if (v < 13 && d.merchants) d.merchants.forEach(function (m) { if (m.name === 'Subway' || m.name === 'Maluco') m.img = ''; });
   if (v < 14) d.recurring.forEach(function (r) { r.day = r.id === 'r_tel' ? 10 : 1; delete r.auto; });
+  if (v < 17) {
+    var ES = { otros: 'Otros', super: 'Súper y casa', medicos: 'Consultas médicas', telefono: 'Teléfono' };
+    d.cats.forEach(function (c) { if (ES[c.id]) c.name = ES[c.id]; });
+    d.cats.forEach(function (c) { if (c.id === 'viajes') c.name = 'Viajes a la playa'; }); // cambiado a mano: no se toca
+    d.recurring.forEach(function (r) { if (r.id === 'r_loan') r.name = 'Préstamo del carro'; });
+    d.goals.forEach(function (g) { if (g.id === 'g_colchon') g.name = 'Colchón de emergencia'; });
+    d.cards.forEach(function (c) { if (c.id === 'debcrc') c.name = 'BAC Débito ₡'; });
+  }
   if (v < 2) delete d.redeems;
   return d;
 }
 
-for (var v = 1; v <= 16; v++) (function (v) {
+for (var v = 1; v <= 17; v++) (function (v) {
   test('datos de la versión ' + v + ' se conservan al abrir la app', function () {
     var viejo = datosViejos(v);
     var t = cargarApp(viejo);
     var S = clone(t.app.S); // copia: los objetos de jsdom vienen de otra ventana
     assert.deepEqual(t.errores, []);
-    assert.equal(S.v, 16, 'La versión debe quedar en 16');
+    assert.equal(S.v, 17, 'La versión debe quedar en 17');
 
     // lo del usuario sigue igual
     assert.equal(S.settings.disp, 'USD');
@@ -126,6 +134,12 @@ for (var v = 1; v <= 16; v++) (function (v) {
     assert.equal(merch('EGS Escazú').cat, 'gasolina');
     assert.equal(merch('Delta Air Lines').site, 'delta.com');
     assert.equal(merch('Viu').img, 'm:viu');
+    var cat = function (id) { return S.cats.find(function (c) { return c.id === id; }); };
+    assert.equal(cat('super').name, 'Groceries and home'); assert.equal(cat('otros').name, 'Other'); assert.equal(cat('medicos').name, 'Doctor visits');
+    if (v < 17) assert.equal(cat('viajes').name, 'Viajes a la playa', 'Un nombre cambiado a mano no se toca');
+    assert.equal(S.recurring.find(function (r) { return r.id === 'r_loan'; }).name, 'Car loan');
+    assert.equal(S.goals.find(function (g) { return g.id === 'g_colchon'; }).name, 'Emergency fund');
+    assert.equal(S.cards.find(function (c) { return c.id === 'debcrc'; }).name, 'BAC Debit ₡');
     var rec = function (id) { return S.recurring.find(function (r) { return r.id === id; }); };
     assert.equal(rec('r_claude').day, 27); assert.equal(rec('r_claude').auto, true);
     assert.equal(rec('r_yt').day, 23); assert.equal(rec('r_loan').day, 2); assert.equal(rec('r_gym').day, 15);
@@ -142,7 +156,7 @@ for (var v = 1; v <= 16; v++) (function (v) {
     if (v >= 5 && v < 9) assert.equal(merch('Amazon').site, 'amazon.es', 'Un sitio puesto a mano no se cambia');
     if (v < 5) assert.equal(S.expenses.find(function (e) { return e.id === 'e3'; }).merchant, 'Costa Rica Country Club');
     if (v < 6) assert.equal(S.expenses.find(function (e) { return e.id === 'e4'; }).merchant, 'Liberty Costa Rica');
-    if (v === 16) assert.deepEqual(S.expenses, viejo.expenses, 'Con la versión actual no se toca nada');
+    if (v === 17) assert.deepEqual(S.expenses, viejo.expenses, 'Con la versión actual no se toca nada');
 
     // la app se ve bien con los datos migrados
     ['home', 'exp', 'cards', 'meta', 'save', 'set'].forEach(function (p) {
@@ -155,7 +169,7 @@ for (var v = 1; v <= 16; v++) (function (v) {
     t.app.render();
     t.click('[data-act="tab"][data-v="home"]');
     var g = t.guardado();
-    assert.equal(g.v, 16);
+    assert.equal(g.v, 17);
     assert.equal(g.expenses.length, 5);
     t.cerrar();
 

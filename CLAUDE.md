@@ -1,4 +1,4 @@
-# Mis gastos
+# Expense-Tracker
 
 App personal de presupuesto y gastos en colones y dólares. Es una PWA de un solo archivo, pensada para iPhone, alojada en GitHub Pages. No tiene servidor: los datos viven en el `localStorage` del dispositivo.
 
@@ -7,7 +7,7 @@ App personal de presupuesto y gastos en colones y dólares. Es una PWA de un sol
 1. **El repo es público. Nunca poner datos personales** en el código, en este archivo ni en los commits: ingreso, saldos reales, números o últimos dígitos de tarjetas, datos de cuentas. Las fotos de tarjetas ya tienen los últimos dígitos tapados.
 2. **Cada cambio sube la versión del caché** en `sw.js` (`const CACHE = 'mis-gastos-vN'`). Sin eso, el iPhone no toma la versión nueva.
 3. **Nunca borrar ni romper los datos guardados del usuario.** Si cambia la forma de los datos: subir `v` en `seed()` y agregar un bloque de migración en `load()`, siguiendo los bloques `if((out.v||1)<N)` que ya existen.
-4. **Idioma de la interfaz:** español de Costa Rica, con voseo ("Escribí", "Tocá", "Elegí").
+4. **Idioma de la interfaz:** inglés (desde el 2026-10-05, a pedido del usuario). Español solo cuando hace falta: nombres propios de comercios, tarjetas, SINPE Móvil, Marchamo. Sin apóstrofos dentro de strings JS con comillas simples.
 5. **Formato de números:** comas en los miles y sin decimales, siempre (`money()`, `short()`, `fmtIn()`). Los campos de monto se leen con `num()`, que acepta comas.
 6. **Mobile primero, iPhone en Safari y como app instalada.** Campos de texto de 16px o más (si no, iOS hace zoom). Probar siempre en un viewport de 390x844.
 7. **No inventar datos:** ni dominios web, ni tasas de recompensa, ni logos. Si falta un dato, pedirlo. **No dibujar logos de marcas**: usar imágenes que el usuario manda o el favicon del sitio web del comercio.
@@ -22,11 +22,12 @@ App personal de presupuesto y gastos en colones y dólares. Es una PWA de un sol
 
 ## Cómo está armada
 
-- **Estado:** un objeto `S` guardado en `localStorage` con la clave `gastos_tracker_v1`. Campos: `settings`, `fx`, `cats`, `cards`, `recurring`, `budgets` (`base` y `over` por mes), `goals`, `contribs`, `expenses`, `redeems`, `merchants`, `generated`, `ui`. La versión del esquema es `v` (hoy 16). Antes de importar un respaldo o de borrar todo, la app guarda una copia en `gastos_tracker_v1_antes` para poder deshacer. Importar pasa por `load()`, así un respaldo viejo se actualiza con las migraciones.
+- **Estado:** un objeto `S` guardado en `localStorage` con la clave `gastos_tracker_v1`. Campos: `settings`, `fx`, `cats`, `cards`, `recurring`, `budgets` (`base` y `over` por mes), `goals`, `contribs`, `expenses`, `redeems`, `merchants`, `generated`, `ui`. La versión del esquema es `v` (hoy 17). Antes de importar un respaldo o de borrar todo, la app guarda una copia en `gastos_tracker_v1_antes` para poder deshacer. Importar pasa por `load()`, así un respaldo viejo se actualiza con las migraciones.
 - **Pantallas:** funciones `view*()` que devuelven HTML como texto. `render()` lo pone en `#vin`. Los eventos usan delegación con `data-act` y un `switch` en `act()`.
 - **Formularios:** hojas inferiores con `openSheet()`. Se ajustan al teclado con `visualViewport` y el botón Guardar queda fijo abajo.
 - **Layout tipo app:** `#app` es una columna fija; `#view` es el único elemento que scrollea. Encabezado y barra inferior no se mueven. No usar `position: sticky` ni `fixed` para cosas nuevas sin probar en iPhone.
-- **Pestañas:** Inicio, Gastos, Tarjetas, Metas, Ahorro. Ajustes se abre con el ícono de arriba a la derecha.
+- **Pestañas:** Home, Expenses, Cards, Budget, Savings. Settings se abre con el ícono de arriba a la derecha.
+- **Diseño:** tema "fintech" violeta (bloque `tema fintech` al final del CSS), fuente Plus Jakarta Sans, secciones como tarjetas redondeadas. Las categorías usan íconos de línea propios (`CATICO`, `catIco()`); las categorías creadas por el usuario usan su emoji.
 
 ## Modelo del gasto
 
@@ -71,7 +72,7 @@ GitHub Pages desde la rama `main`, carpeta raíz. Después de subir cambios tard
 
 ## Cómo trabajar con el usuario
 
-- No programa. Explicar en español, con pasos cortos y sin jerga.
+- No programa. Desde el 2026-10-05 prefiere conversar en inglés, con pasos cortos y sin jerga.
 - Antes de un cambio grande, mostrar un plan breve y esperar el visto bueno.
 - Al terminar, decir con claridad qué cambió, qué se probó y qué no se pudo probar.
 - Si algo se ve mal en pantalla, pedir una captura en vez de adivinar.
