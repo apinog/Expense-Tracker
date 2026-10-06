@@ -41,7 +41,7 @@ function registrarGasto(t, g) {
 test('arranca sin datos y sin errores', function () {
   var t = cargarApp();
   assert.deepEqual(t.errores, []);
-  assert.equal(t.app.S.v, 18);
+  assert.equal(t.app.S.v, 19);
   assert.ok(t.$('#vin').innerHTML.length > 0, 'La pantalla de inicio quedó vacía');
   sinProblemas(t, 'Inicio');
   t.cerrar();
@@ -295,6 +295,25 @@ test('Apple Pay: pegar una compra llena el formulario', function () {
   t.cerrar();
 });
 
+test('los cobros automáticos se registran solos y no vuelven si se borran', function () {
+  var base = cargarApp(); var d = JSON.parse(JSON.stringify(base.app.S)); base.cerrar();
+  var hoy = new Date(), m = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+  d.settings.autoFrom = m;
+  d.recurring.forEach(function (r) { if (r.id === 'r_claude') r.day = 1; if (r.id === 'r_yt') r.day = 31; });
+  var t = cargarApp(d, { autoLog: true });
+  var c = t.app.S.expenses.filter(function (e) { return e.recurId === 'r_claude'; });
+  assert.equal(c.length, 1, 'Claude se registra solo el día 1');
+  assert.equal(c[0].per, m); assert.equal(c[0].card, 'amexblue'); assert.equal(c[0].auto, true);
+  assert.ok(!t.app.S.expenses.some(function (e) { return e.recurId === 'r_yt'; }) || hoy.getDate() >= 28, 'YouTube espera a su día');
+  // si lo borrás, no vuelve
+  t.app.S.expenses = t.app.S.expenses.filter(function (e) { return e.recurId !== 'r_claude'; });
+  var g = JSON.parse(JSON.stringify(t.app.S)); t.cerrar();
+  var t2 = cargarApp(g, { autoLog: true });
+  assert.ok(!t2.app.S.expenses.some(function (e) { return e.recurId === 'r_claude'; }), 'Un cobro borrado no se vuelve a registrar');
+  assert.deepEqual(t2.errores, []);
+  t2.cerrar();
+});
+
 test('tarjeta por defecto según la categoría', function () {
   var t = cargarApp();
   t.click('#fab');
@@ -358,7 +377,7 @@ test('respaldo: importar uno viejo lo actualiza y se puede deshacer', async func
   viejo.expenses = [{ id: 'resp1', ts: 2, date: S.ui.month + '-03', amt: 7000, cur: 'CRC', rate: 500, cat: 'comida', card: 'bct', merchant: 'Starbucks', note: '', intl: false }];
   await importar(t, viejo);
   S = t.app.S;
-  assert.equal(S.v, 18, 'El respaldo viejo pasa por la actualización');
+  assert.equal(S.v, 19, 'El respaldo viejo pasa por la actualización');
   assert.deepEqual(ids(S), ['resp1']);
   assert.ok(S.merchants.length > 0 && S.cats.some(function (c) { return c.id === 'medicos'; }));
   t.click('[data-act="tab"][data-v="set"]');

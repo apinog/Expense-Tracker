@@ -522,8 +522,8 @@ function pad(n){return String(n).padStart(2,'0');}
 function seed(){
   var start='2026-10', cur=ym(new Date());
   return {
-    v:18,
-    settings:{disp:'CRC',income:null,mileUSD:0.01,start:start,lastBackup:null,balDone:false},
+    v:19,
+    settings:{disp:'CRC',income:null,mileUSD:0.01,start:start,lastBackup:null,balDone:false,autoFrom:cur},
     fx:{rate:500,ts:0,manual:false,est:true},
     cats:clone(CATS0), cards:clone(CARDS0), recurring:clone(RECUR0),
     budgets:{base:{
@@ -692,6 +692,11 @@ function load(){
         var sp18=out.cards.find(function(c){return c.id==='sinpe';}); if(sp18&&!sp18.img) sp18.img='cards/sinpe-movil.jpg';
         var bc18=out.cards.find(function(c){return c.id==='bct';}); if(bc18&&bc18.backup==null) bc18.backup=true;
         out.v=18;
+      }
+      if((out.v||1)<19){
+        if(!out.settings.autoFrom) out.settings.autoFrom=ym(new Date()); // los cobros automáticos se registran desde este mes
+        out.expenses.forEach(function(e){var mm=/^Incluye (.+) de comisión por transferir$/.exec(e.note||'');if(mm)e.note='Includes '+mm[1]+' transfer fee';});
+        out.v=19;
       }
       if(!Array.isArray(out.redeems)) out.redeems=[];
       out.ui.seen=out.ui.seen||{}; out.ui.dismiss=out.ui.dismiss||{};
@@ -871,6 +876,25 @@ function fixedStatus(m){
 }
 var LEAD=10; // días antes del vencimiento en que aparece la cuota del mes siguiente
 function dueDate(r,m){return m+'-'+pad(Math.min(r.day||1,daysIn(m)));}
+/* fijos con cobro automático (Claude, YouTube): se registran solos el día del cobro.
+   Solo desde el mes en que se activó (settings.autoFrom); si borrás uno, no vuelve a aparecer (settings.autoDone). */
+function autoLogBills(){
+  if(window.__noAutoLog) return 0; // las pruebas lo apagan para no depender del día
+  var today=ymd(new Date()), cur=ym(new Date()), n=0, done=S.settings.autoDone=S.settings.autoDone||{};
+  var first=S.settings.autoFrom||cur;
+  S.recurring.forEach(function(r){
+    if(r.active===false||!r.auto) return;
+    for(var m=first,g=0;m<=cur&&g<24;m=addMonths(m,1),g++){
+      var k=r.id+'|'+m; if(done[k]) continue;
+      if(S.expenses.some(function(e){return e.recurId===r.id&&mOf(e)===m;})){done[k]=true;continue;}
+      var d=dueDate(r,m); if(d>today) continue;
+      S.expenses.push({id:uid(),ts:Date.now(),date:d,amt:round2(r.amt+(r.fee||0)),cur:r.cur,rate:rate(),cat:r.cat,card:r.card,merchant:r.merchant||r.name,note:'Logged automatically',intl:!!r.intl,recurId:r.id,per:m,auto:true});
+      done[k]=true; n++;
+    }
+  });
+  if(n){save();toast(n===1?'1 bill logged automatically':n+' bills logged automatically');}
+  return n;
+}
 function fixedItems(m){
   var out=fixedStatus(m).map(function(o){o.per=m;return o;}), cur=ym(new Date()), lim=addDays(ymd(new Date()),LEAD), nm=addMonths(m,1);
   if(m===cur) fixedStatus(nm).forEach(function(o){if(!o.e&&dueDate(o.r,nm)<=lim){o.per=nm;out.push(o);}});
@@ -886,7 +910,7 @@ function dueText(r,per,m){
 function fixedRows(m,onlyPending){
   return fixedItems(m).filter(function(o){return !onlyPending||!o.e;}).map(function(o){
     var r=o.r, cd=cardById(r.card), nm=esc(r.name)+(o.per!==m?' ('+MESES[+o.per.slice(5)-1]+')':'');
-    if(o.e) return '<button class="fixrow" data-act="edit-exp" data-id="'+o.e.id+'"><span class="dot done">✓</span><span class="nm"><span class="ln">'+merchMini(r.merchant||r.name)+nm+'</span><small>Paid '+dayLabel(o.e.date)+'</small></span><b class="num">'+money(vOf(o.e))+'</b></button>';
+    if(o.e) return '<button class="fixrow" data-act="edit-exp" data-id="'+o.e.id+'"><span class="dot done">✓</span><span class="nm"><span class="ln">'+merchMini(r.merchant||r.name)+nm+'</span><small>Paid '+dayLabel(o.e.date)+(o.e.auto?' · automatically':'')+'</small></span><b class="num">'+money(vOf(o.e))+'</b></button>';
     return '<div class="fixrow"><span class="dot"></span><span class="nm"><span class="ln">'+merchMini(r.merchant||r.name)+nm+'</span><small>'+money(r.amt,r.cur)+(r.fee?' + '+money(r.fee,r.cur)+' fee':'')+(cd?', '+esc(cd.name):'')+' · '+dueText(r,o.per,m)+'</small></span><button class="btn sm primary" data-act="pay-fixed" data-id="'+r.id+'" data-per="'+o.per+'">Log</button></div>';
   }).join('');
 }
@@ -2162,6 +2186,7 @@ document.addEventListener('toggle',function(e){
   var sm=t.querySelector('summary'); if(t.dataset.fold==='flt'&&sm) sm.textContent=t.open?'Hide filters':'Period and filters';
 },true);
 document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'&&autoLogBills()) render();
   if(document.visibilityState==='visible'&&!S.fx.manual&&Date.now()-S.fx.ts>6*3600e3) fetchFx(false);
 });
 
@@ -2176,6 +2201,7 @@ document.addEventListener('visibilitychange',function(){
 })();
 
 /* ================= arranque ================= */
+autoLogBills();
 render();
 if(!S.fx.manual&&(!S.fx.ts||Date.now()-S.fx.ts>6*3600e3)) fetchFx(false);
 

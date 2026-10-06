@@ -7,7 +7,8 @@ var HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 var KEY = 'gastos_tracker_v1';
 
 // Carga la app. Si se pasan `datos`, se guardan antes en localStorage como si ya existieran.
-function cargarApp(datos) {
+function cargarApp(datos, opts) {
+  opts = opts || {};
   var errores = [];
   var dom = new JSDOM(HTML, {
     url: 'http://localhost/',
@@ -19,6 +20,7 @@ function cargarApp(datos) {
       w.fetch = function () { return Promise.reject(new Error('sin red en pruebas')); };
       w.confirm = function () { return true; };
       w.alert = function () {};
+      if (!opts.autoLog) w.__noAutoLog = true;
       w.addEventListener('error', function (e) { errores.push(e.error || e.message); });
     }
   });
