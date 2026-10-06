@@ -41,7 +41,7 @@ function registrarGasto(t, g) {
 test('arranca sin datos y sin errores', function () {
   var t = cargarApp();
   assert.deepEqual(t.errores, []);
-  assert.equal(t.app.S.v, 17);
+  assert.equal(t.app.S.v, 18);
   assert.ok(t.$('#vin').innerHTML.length > 0, 'La pantalla de inicio quedó vacía');
   sinProblemas(t, 'Inicio');
   t.cerrar();
@@ -295,6 +295,24 @@ test('Apple Pay: pegar una compra llena el formulario', function () {
   t.cerrar();
 });
 
+test('tarjeta por defecto según la categoría', function () {
+  var t = cargarApp();
+  t.click('#fab');
+  t.escribir('#f_cat', 'online');
+  assert.equal(t.$('#f_card').value, 'amexblue', 'Online va con Amex Blue');
+  t.escribir('#f_cat', 'super');
+  assert.equal(t.$('#f_card').value, 'amexeco', 'El día a día va con Amex EconoMía');
+  t.escribir('#f_amt', '50,000');
+  assert.ok(!/BCT/.test(t.$('#prev').textContent), 'La BCT es de respaldo: no se sugiere');
+  t.click('#sheet [data-act="cancel"]');
+  // con historial, gana la tarjeta que más usás en esa categoría
+  var S = t.app.S, d = S.ui.month + '-02';
+  [1, 2, 3].forEach(function (i) { S.expenses.push({ id: 'h' + i, ts: i, date: d, amt: 1000, cur: 'CRC', rate: 500, cat: 'gasolina', card: 'premia', merchant: '', note: '', intl: false }); });
+  t.click('#fab'); t.escribir('#f_cat', 'gasolina');
+  assert.equal(t.$('#f_card').value, 'premia', 'Usa la tarjeta habitual de la categoría');
+  t.cerrar();
+});
+
 test('la Gane Premios queda de última opción', function () {
   var t = cargarApp();
   t.click('#fab');
@@ -340,7 +358,7 @@ test('respaldo: importar uno viejo lo actualiza y se puede deshacer', async func
   viejo.expenses = [{ id: 'resp1', ts: 2, date: S.ui.month + '-03', amt: 7000, cur: 'CRC', rate: 500, cat: 'comida', card: 'bct', merchant: 'Starbucks', note: '', intl: false }];
   await importar(t, viejo);
   S = t.app.S;
-  assert.equal(S.v, 17, 'El respaldo viejo pasa por la actualización');
+  assert.equal(S.v, 18, 'El respaldo viejo pasa por la actualización');
   assert.deepEqual(ids(S), ['resp1']);
   assert.ok(S.merchants.length > 0 && S.cats.some(function (c) { return c.id === 'medicos'; }));
   t.click('[data-act="tab"][data-v="set"]');
