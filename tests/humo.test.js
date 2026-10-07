@@ -354,6 +354,32 @@ test('carro: Year deja ver años anteriores (2025)', function () {
   t.cerrar();
 });
 
+test('seguro: un solo pago cubre varios gastos y se reparte', function () {
+  var t = cargarApp(), S = t.app.S;
+  var hoy = new Date(), d = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-01';
+  [['i1', 'medicos', 40000], ['i2', 'medicos', 50000], ['i3', 'salud', 10000]].forEach(function (x) {
+    S.expenses.push({ id: x[0], ts: 1, date: d, amt: x[2], cur: 'CRC', rate: 500, cat: x[1], card: 'debcrc', merchant: 'Prueba ' + x[0], note: '', intl: false, reimb: { exp: null, got: null } });
+  });
+  S.ui.tab = 'home'; S.ui.month = d.slice(0, 7); t.app.render();
+  var antes = t.app.monthStats(d.slice(0, 7));
+  assert.equal(antes.ins, 100000, 'Los tres cuentan completos mientras esperan');
+  assert.ok(t.$('#vin').textContent.indexOf('waiting on insurance') >= 0);
+  assert.ok(t.$('#vin').textContent.indexOf('..') < 0, 'Sin punto doble');
+  t.click('[data-act="ins-pay"]');
+  assert.equal(t.doc.querySelectorAll('.ins_ck').length, 3);
+  t.escribir('#ip_amt', '80,000');
+  t.click('#sheet [data-act="save-ins"]');
+  var got = ['i1', 'i2', 'i3'].map(function (id) { return S.expenses.find(function (e) { return e.id === id; }).reimb.got; });
+  assert.deepEqual(got, [32000, 40000, 8000], 'Se reparte según lo que costó cada uno');
+  var desp = t.app.monthStats(d.slice(0, 7));
+  assert.equal(desp.ins, 0);
+  assert.equal(Math.round(antes.spent - desp.spent), 80000, 'Solo cuenta lo que no devolvieron');
+  assert.ok(!t.$('[data-act="ins-pay"]'), 'Ya no quedan pendientes');
+  var pr = problemas(t.doc.body); assert.deepEqual(pr, []);
+  assert.deepEqual(t.errores, []);
+  t.cerrar();
+});
+
 test('fijos cada 3 meses y anuales aparecen solo cuando tocan', function () {
   var t = cargarApp(), S = t.app.S;
   var nombres = function (m) { S.ui.month = m; S.ui.tab = 'exp'; t.app.render(); return t.$('#vin').textContent; };

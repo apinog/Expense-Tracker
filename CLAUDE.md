@@ -35,7 +35,7 @@ App personal de presupuesto y gastos en colones y dólares. Es una PWA de un sol
 
 - `rate` es colones por dólar **al momento de registrar**. Cada gasto guarda el suyo para que el historial no cambie cuando el dólar se mueve. Los totales se convierten con ese `rate`.
 - `goal`: gasto pagado con una meta de ahorro. No cuenta contra el presupuesto y se descuenta del saldo de la meta.
-- `reimb: {exp, got}`: reembolso del seguro médico. En el presupuesto cuenta el monto menos lo recibido (`netOf()`). Las recompensas se calculan sobre el monto completo.
+- `reimb: {exp, got}`: reembolso del seguro médico. En el presupuesto cuenta el monto menos lo recibido (`netOf()`). Las recompensas se calculan sobre el monto completo. Mientras no llega, cuenta completo (el usuario lo prefirió: no sabe cuánto descuenta el seguro); Home dice cuánto espera al seguro (`monthStats().ins`) y el ritmo del mes no proyecta esos gastos. Un solo depósito puede cubrir varios gastos: "Record insurance payment" (`insSheet()`/`insPay()`) reparte el total según lo que costó cada uno.
 - `split: {mine, got}`: gasto compartido. En el presupuesto cuenta solo `mine` (`myShare()`, usado por `netOf()`); lo que falta (`owedOf()`) sale en Home como "Owed to you". Las recompensas siguen sobre el monto completo.
 - `recurId`: viene de un fijo automático.
 - `per`: mes (`YYYY-MM`) que cubre un fijo. Si se paga antes (el préstamo se paga una semana antes del día 2), cuenta para ese mes. `mOf(e)` da el mes de un gasto para presupuesto, listas y gráficos; los totales por tarjeta y los topes de recompensas siguen la fecha real.

@@ -47,6 +47,10 @@ button{font:inherit;color:inherit;cursor:pointer}
 .seg.mini button{color:#fff;padding:4px 11px;font-size:13px}
 .seg.mini button.on{background:#fff;color:var(--navy)}
 .mrow{display:flex;align-items:center;gap:4px;margin:6px -8px 0}
+.insrow{padding:10px 0;border-bottom:1px solid var(--line);margin:0}
+.insrow .nm{flex:1;min-width:0;font-size:15px;color:var(--ink)}
+.insrow .nm small{display:block;font-size:12px;color:var(--mute)}
+.insrow b{font-size:15px;color:var(--ink)}
 .ystep{display:flex;align-items:center;gap:2px;margin-left:-10px}
 .ystep button{width:40px;height:36px;border:0;background:transparent;color:var(--blue);font-size:26px;line-height:1;cursor:pointer}
 .ystep button:disabled{opacity:.25}
@@ -821,7 +825,7 @@ function fmtIn(v){
   var n=num(v); if(isNaN(n)) return '';
   return nfN.format(Math.round(n));
 }
-var MONEY_IDS=['f_smine','f_sgot','i_amt','f_rexp','f_rgot','f_amt','r_amt','r_fee','c_amt','g_monthly','g_target','g_init','k_capm','k_capy','k_start','k_min','d_amt','s_income'];
+var MONEY_IDS=['ip_amt','f_smine','f_sgot','i_amt','f_rexp','f_rgot','f_amt','r_amt','r_fee','c_amt','g_monthly','g_target','g_init','k_capm','k_capy','k_start','k_min','d_amt','s_income'];
 function prepMoney(root){
   $$('input',root||document).forEach(function(el){
     if(MONEY_IDS.indexOf(el.id)<0&&!/^b_[cg]_/.test(el.id)&&!el.classList.contains('bamt')) return;
@@ -1023,7 +1027,9 @@ function monthStats(m){
     var c=catById(id); if(c&&c.kind==='fijo'){fix+=by[id].spent;fixB+=by[id].budget;}
   });
   var goalSpent=ex.filter(function(e){return e.goal;}).reduce(function(a,e){return a+vOf(e);},0);
-  return {ex:ex,exb:exb,by:by,spent:spent,budget:budget,fix:fix,fixB:fixB,varSpent:spent-fix,goalSpent:goalSpent};
+  /* gastos que esperan reembolso del seguro: cuentan completos hasta que llega la plata */
+  var ins=exb.filter(function(e){var c=catById(e.cat);return e.reimb&&!reimbGot(e)&&!(c&&c.kind==='fijo');}).reduce(function(a,e){return a+netOf(e);},0);
+  return {ex:ex,exb:exb,by:by,spent:spent,budget:budget,fix:fix,fixB:fixB,varSpent:spent-fix,goalSpent:goalSpent,ins:ins};
 }
 function monthRewards(ex){
   var rw=rewards(), tot=0;
@@ -1046,8 +1052,8 @@ function buildInsights(m,st){
     return out;
   }
   if(m===cur&&el>=0.1&&st.budget>0){
-    var proj=st.fix+st.varSpent/el, over=proj>st.budget;
-    out.push({tone:over?'warn':'ok',t:'Monthly pace',x:'You have spent '+money(st.spent)+'. At this pace you will end near '+money(proj)+', '+(over?money(proj-st.budget)+' over budget.':money(st.budget-proj)+' under budget.')});
+    var proj=st.fix+st.ins+(st.varSpent-st.ins)/el, over=proj>st.budget;
+    out.push({tone:over?'warn':'ok',t:'Monthly pace',x:'You have spent '+money(st.spent)+'. At this pace you will end near '+money(proj)+', '+(over?money(proj-st.budget)+' over budget.':money(st.budget-proj)+' under budget.')+(st.ins>0?' Bills waiting on insurance count once, not as a daily habit.':'')});
   }else if(m<cur&&st.budget>0){
     var d=st.budget-st.spent;
     out.push({tone:d>=0?'ok':'bad',t:'Month close',x:'You ended at '+money(st.spent)+' on a budget of '+money(st.budget)+': '+(d>=0?money(d)+' under.':money(-d)+' over.')});
@@ -1057,7 +1063,7 @@ function buildInsights(m,st){
     .sort(function(a,b){return b.spent/b.budget-a.spent/a.budget;}).slice(0,2);
   risky.forEach(function(o){
     var p=Math.round(o.spent/o.budget*100), left=daysIn(m)-new Date().getDate();
-    out.push({tone:p>100?'bad':'warn',t:o.c.name+' at '+p+'%',x:(p>100?'Already over budget by '+money(o.spent-o.budget)+'.':money(o.budget-o.spent)+' left in the budget')+(m===cur&&p<=100?', with '+left+' days to go.':'.')});
+    out.push({tone:p>100?'bad':'warn',t:o.c.name+' at '+p+'%',x:(p>100?'Already over budget by '+money(o.spent-o.budget):money(o.budget-o.spent)+' left in the budget')+(m===cur&&p<=100?', with '+left+' days to go.':'.')});
   });
   if(!risky.length&&st.varSpent>0) out.push({tone:'ok',t:'Variable spending on track',x:'No variable category is above 85% of its budget.'});
   var rw=monthRewards(st.ex), credit=0, miss=0, worst=null;
@@ -1546,6 +1552,7 @@ function viewHome(){
     +'<div class="big num">'+money(Math.abs(left))+'</div>'
     +'<div class="sub">You spent '+money(vS)+' of '+money(vB)+'.'+(perDay?' You can spend <b>'+money(perDay)+' a day</b> until month end.':(m<cur?' Month closed.':''))+'</div>'
     +barHTML(vB>0?vS/vB*100:0,el)
+    +(st.ins>0?'<div class="sub" style="margin-top:8px">Includes '+money(st.ins)+' waiting on insurance.</div>':'')
     +'<div class="hstats"><div><small>Total spent</small><b class="num">'+money(st.spent)+'</b></div><div><small>Bills paid</small><b class="num">'+paid+' of '+fx.length+'</b></div><div><small>Rewards</small><b class="num">'+money(rw)+'</b></div></div></div>';
 
   h+=banners(m);
@@ -1574,7 +1581,8 @@ function viewHome(){
     var pexp=pend.reduce(function(a,e){return a+(e.reimb.exp>0?vOf({amt:e.reimb.exp,cur:e.cur,rate:e.rate}):0);},0);
     h+='<section class="sec"><div class="shead"><h2 style="margin:0">Pending reimbursements</h2><span>'+(pexp>0?money(pexp)+' to receive':pend.length+' pending')+'</span></div>'
       +pend.map(function(e){var c=catById(e.cat);return '<button class="fixrow" data-act="edit-exp" data-id="'+e.id+'">'+'<span class="nm"><span class="ln">'+merchMini(e.merchant||(c?c.name:'Expense'))+esc(e.merchant||(c?c.name:'Expense'))+'</span><small>'+dayLabel(e.date)+', you paid '+money(vOf(e))+'</small></span><span class="num">'+(e.reimb.exp>0?money(vOf({amt:e.reimb.exp,cur:e.cur,rate:e.rate})):'—')+'</span></button>';}).join('')
-      +'<p class="hint" style="margin:8px 0 0">Tap one to log what you got back.</p></section>';
+      +'<button class="btn primary" style="width:100%;margin-top:10px" data-act="ins-pay">Record insurance payment</button>'
+      +'<p class="hint" style="margin:8px 0 0">One transfer can cover several expenses. To fix a single one, tap it.</p></section>';
   }
   var mi=monthIncome(m);
   if(mi.total>0){
@@ -2068,6 +2076,24 @@ function saveExp(){
 }
 
 /* --- aportes y metas de ahorro --- */
+/* un solo depósito del seguro que cubre varios gastos: se reparte según lo que costó cada uno */
+function insSheet(){
+  var pend=S.expenses.filter(function(e){return e.reimb&&!reimbGot(e);}).sort(function(a,b){return a.date<b.date?-1:1;});
+  sheetState={};
+  var html='<h3>Insurance payment</h3><p class="hint">Tick the expenses this transfer covers and enter the total you got back. The app splits it among them.</p>'
+    +pend.map(function(e){var c=catById(e.cat);return '<label class="chk insrow"><input type="checkbox" class="ins_ck" value="'+e.id+'" checked><span class="nm">'+esc(e.merchant||(c?c.name:'Expense'))+'<small>'+dayLabel(e.date)+'</small></span><b class="num">'+money(e.amt,e.cur)+'</b></label>';}).join('')
+    +'<label class="l">Total received</label><div class="two" style="grid-template-columns:1fr 112px"><input id="ip_amt" inputmode="decimal" placeholder="0">'
+    +'<select id="ip_cur"><option value="CRC">₡ colones</option><option value="USD">$ dollars</option></select></div>'
+    +'<p class="hint" style="margin:6px 0 0">What insurance does not cover stays as spending in the month of each expense.</p>'
+    +'<div class="btns"><button class="btn" data-act="cancel">Cancel</button><button class="btn primary" data-act="save-ins">Save</button></div>';
+  openSheet(html);
+}
+function insPay(ids,amt,cur){
+  var ex=S.expenses.filter(function(e){return ids.indexOf(e.id)>=0;}), tot=ex.reduce(function(a,e){return a+crcOf(e);},0);
+  var crc=cur==='USD'?amt*rate():amt;
+  ex.forEach(function(e){var part=tot>0?crc*crcOf(e)/tot:0;e.reimb=e.reimb||{exp:null,got:null};e.reimb.got=round2(e.cur==='USD'?part/e.rate:part);});
+  return ex.length;
+}
 function incomeSheet(id){
   var x=id?(S.incomes||[]).find(function(i){return i.id===id;}):null, t=ymd(new Date()), m=U().month;
   sheetState={id:id||null};
@@ -2391,6 +2417,12 @@ function act(name,el){
     case 'save-car': S.car={name:$('#v_name').value.trim()||'Car',year:$('#v_year').value.trim()}; save(); closeSheet(); render(); break;
     case 'add-income': incomeSheet(); break;
     case 'edit-income': incomeSheet(d.id); break;
+    case 'ins-pay': insSheet(); break;
+    case 'save-ins':
+      var ids=[].slice.call(document.querySelectorAll('.ins_ck')).filter(function(x){return x.checked;}).map(function(x){return x.value;});
+      if(!ids.length){toast('Tick at least one expense');break;}
+      var ipa=num($('#ip_amt').value); if(!(ipa>0)){toast('Enter the amount received');break;}
+      insPay(ids,ipa,$('#ip_cur').value); save(); closeSheet(); render(); toast('Insurance payment saved'); break;
     case 'save-income':
       var ia=num($('#i_amt').value); if(!(ia>0)){toast('Enter an amount');break;}
       var id0=$('#i_date').value; if(!id0){toast('Pick a date');break;}
