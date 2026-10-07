@@ -1,11 +1,11 @@
 /* Mis gastos: funciona sin conexión y se actualiza sola.
    Cuando cambies archivos, subí también este con un número de versión nuevo. */
-const CACHE = 'mis-gastos-v29';
+const CACHE = 'mis-gastos-v30';
 const CORE = [
   './', './index.html', './manifest.json',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
   './cards/amex-blue.webp', './cards/economia.webp', './cards/bct-cashback.webp',
-  './cards/premia-travel.webp', './cards/bac-la-roja.webp', './cards/gane-premios.jpg', './cards/sinpe-movil.jpg'
+  './cards/premia-travel.webp', './cards/bac-la-roja.webp', './cards/gane-premios.jpg', './cards/sinpe-movil.jpg', './cards/paypal.jpg'
 ];
 const LIVE = ['api.hacienda.go.cr', 'open.er-api.com', 'api.exchangerate-api.com'];
 

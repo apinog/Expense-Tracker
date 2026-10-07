@@ -41,7 +41,7 @@ function registrarGasto(t, g) {
 test('arranca sin datos y sin errores', function () {
   var t = cargarApp();
   assert.deepEqual(t.errores, []);
-  assert.equal(t.app.S.v, 19);
+  assert.equal(t.app.S.v, 20);
   assert.ok(t.$('#vin').innerHTML.length > 0, 'La pantalla de inicio quedó vacía');
   sinProblemas(t, 'Inicio');
   t.cerrar();
@@ -314,6 +314,57 @@ test('los cobros automáticos se registran solos y no vuelven si se borran', fun
   t2.cerrar();
 });
 
+test('fijos cada 3 meses y anuales aparecen solo cuando tocan', function () {
+  var t = cargarApp(), S = t.app.S;
+  var nombres = function (m) { S.ui.month = m; S.ui.tab = 'exp'; t.app.render(); return t.$('#vin').textContent; };
+  var dic = nombres('2026-12'), ene = nombres('2027-01'), mar = nombres('2027-03'), nov = nombres('2026-11');
+  assert.ok(/Uber One/.test(dic) && /Viu/.test(dic) && /Marchamo/.test(dic), 'En diciembre tocan los tres');
+  assert.ok(!/Uber One/.test(ene) && !/Viu/.test(ene) && !/Marchamo/.test(ene), 'En enero no toca ninguno');
+  assert.ok(/Viu/.test(mar) && !/Uber One/.test(mar), 'Viu vuelve a los 3 meses');
+  assert.ok(!/Marchamo/.test(nov), 'El marchamo no aparece en noviembre');
+  assert.ok(/Amount varies/.test(dic), 'El marchamo no tiene monto fijo');
+  // al registrar el marchamo, viene con la meta de ahorro elegida y el monto vacío
+  S.ui.month = '2026-12'; t.app.render();
+  t.app.act('pay-fixed', { dataset: { id: 'r_marchamo', per: '2026-12' } });
+  assert.equal(t.$('#f_goal').value, 'g_march');
+  assert.equal(t.$('#f_amt').value, '');
+  t.cerrar();
+});
+
+test('gastos compartidos: solo tu parte cuenta y lo demás te lo deben', function () {
+  var t = cargarApp(), S = t.app.S;
+  t.click('#fab'); t.escribir('#f_cat', 'comida'); t.escribir('#f_amt', '40,000');
+  t.$('#f_split').checked = true; t.escribir('#f_split', 'on');
+  assert.equal(t.$('#f_smine').value, '20,000', 'Por defecto propone la mitad');
+  t.click('#sheet button[data-act="save-exp"]');
+  var e = S.expenses[S.expenses.length - 1];
+  assert.deepEqual(JSON.parse(JSON.stringify(e.split)), { mine: 20000, got: 0 });
+  var st = t.app.monthStats(S.ui.month);
+  assert.equal(Math.round(st.by.comida.spent), 20000, 'En el presupuesto cuenta solo tu parte');
+  t.click('[data-act="tab"][data-v="home"]');
+  assert.ok(/Owed to you/.test(t.$('#vin').textContent), 'Aparece lo que te deben');
+  // cuando te pagan, desaparece
+  e.split.got = 20000; t.app.render();
+  assert.ok(!/Owed to you/.test(t.$('#vin').textContent));
+  t.cerrar();
+});
+
+test('ingresos extra y tasa de ahorro', function () {
+  var t = cargarApp(), S = t.app.S;
+  S.settings.income = 1000000;
+  t.click('[data-act="tab"][data-v="meta"]');
+  t.click('[data-act="add-income"]');
+  t.escribir('#i_amt', '200,000'); t.escribir('#i_note', 'Bonus');
+  t.click('#sheet button[data-act="save-income"]');
+  assert.equal(S.incomes.length, 1);
+  assert.ok(/Bonus/.test(t.$('#vin').textContent), 'El ingreso extra sale en el resumen');
+  t.click('[data-act="tab"][data-v="home"]');
+  var txt = t.$('#vin').textContent;
+  assert.ok(/Income and savings rate/.test(txt) && /1,200,000/.test(txt), 'Inicio suma el ingreso fijo y el extra');
+  var p = problemas(t.doc.body); assert.deepEqual(p, [], p.join('\n'));
+  t.cerrar();
+});
+
 test('tarjeta por defecto según la categoría', function () {
   var t = cargarApp();
   t.click('#fab');
@@ -377,7 +428,7 @@ test('respaldo: importar uno viejo lo actualiza y se puede deshacer', async func
   viejo.expenses = [{ id: 'resp1', ts: 2, date: S.ui.month + '-03', amt: 7000, cur: 'CRC', rate: 500, cat: 'comida', card: 'bct', merchant: 'Starbucks', note: '', intl: false }];
   await importar(t, viejo);
   S = t.app.S;
-  assert.equal(S.v, 19, 'El respaldo viejo pasa por la actualización');
+  assert.equal(S.v, 20, 'El respaldo viejo pasa por la actualización');
   assert.deepEqual(ids(S), ['resp1']);
   assert.ok(S.merchants.length > 0 && S.cats.some(function (c) { return c.id === 'medicos'; }));
   t.click('[data-act="tab"][data-v="set"]');
