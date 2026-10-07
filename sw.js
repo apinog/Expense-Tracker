@@ -1,6 +1,6 @@
 /* Mis gastos: funciona sin conexión y se actualiza sola.
    Cuando cambies archivos, subí también este con un número de versión nuevo. */
-const CACHE = 'mis-gastos-v28';
+const CACHE = 'mis-gastos-v29';
 const CORE = [
   './', './index.html', './manifest.json',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
