@@ -1965,7 +1965,7 @@ function setCardPick(id,noScroll){
   if(!noScroll&&b&&row){var x=b.offsetLeft-(row.clientWidth-b.offsetWidth)/2;row.scrollLeft=Math.max(0,x);}
 }
 /* tarjeta por defecto: la que más usás en esa categoría; si no hay historial, Amex Blue para compras del exterior,
-   online, viajes y suscripciones, y Amex EconoMía para el día a día. Las tarjetas de respaldo no se eligen solas. */
+   online, viajes, suscripciones y salidas (bares: 1% seguro en Blue; en EconoMía solo si BAC los cuenta como restaurante), y Amex EconoMía para el día a día. Las tarjetas de respaldo no se eligen solas. */
 function histCard(cat){
   var lim=ymd(new Date(Date.now()-90*864e5)), n={}, tot=0;
   S.expenses.forEach(function(e){if(e.cat!==cat||e.recurId||e.date<lim||!cardById(e.card))return;n[e.card]=(n[e.card]||0)+1;tot++;});
@@ -1975,7 +1975,7 @@ function histCard(cat){
 function defaultCard(f){
   var ok=function(id){var c=cardById(id);return c&&c.active!==false&&!c.nosug?id:'';};
   var h=ok(histCard(f.cat)); if(h) return h;
-  if(f.intl||['online','viajes','suscr'].indexOf(f.cat)>=0) return ok('amexblue')||'';
+  if(f.intl||['online','viajes','suscr','salidas'].indexOf(f.cat)>=0) return ok('amexblue')||'';
   return ok('amexeco')||'';
 }
 function autoCard(force){

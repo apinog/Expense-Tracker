@@ -408,6 +408,8 @@ test('tarjeta por defecto según la categoría', function () {
   t.click('#fab');
   t.escribir('#f_cat', 'online');
   assert.equal(t.$('#f_card').value, 'amexblue', 'Online va con Amex Blue');
+  t.escribir('#f_cat', 'salidas');
+  assert.equal(t.$('#f_card').value, 'amexblue', 'Salidas y bares van con Amex Blue');
   t.escribir('#f_cat', 'super');
   assert.equal(t.$('#f_card').value, 'amexeco', 'El día a día va con Amex EconoMía');
   t.escribir('#f_amt', '50,000');
