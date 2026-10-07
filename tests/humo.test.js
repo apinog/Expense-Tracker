@@ -3,7 +3,7 @@ var test = require('node:test');
 var assert = require('node:assert/strict');
 var { cargarApp, problemas } = require('./ayuda');
 
-var PESTANAS = ['home', 'exp', 'cards', 'meta', 'save', 'set'];
+var PESTANAS = ['home', 'exp', 'cards', 'meta', 'save', 'car', 'set'];
 
 function sinProblemas(t, donde) {
   var p = problemas(t.doc.body);
@@ -41,7 +41,7 @@ function registrarGasto(t, g) {
 test('arranca sin datos y sin errores', function () {
   var t = cargarApp();
   assert.deepEqual(t.errores, []);
-  assert.equal(t.app.S.v, 20);
+  assert.equal(t.app.S.v, 21);
   assert.ok(t.$('#vin').innerHTML.length > 0, 'La pantalla de inicio quedó vacía');
   sinProblemas(t, 'Inicio');
   t.cerrar();
@@ -365,6 +365,44 @@ test('ingresos extra y tasa de ahorro', function () {
   t.cerrar();
 });
 
+test('pestaña Car: historial, métricas y filtros', function () {
+  var t = cargarApp(), S = t.app.S;
+  assert.equal(S.fuel.length, 28, 'Trae las 28 cargas del historial');
+  assert.equal(S.fuel.filter(function (f) { return f.missed; }).length, 4);
+  S.ui.carP = 'all'; S.ui.tab = 'car'; t.app.render();
+  var txt = t.$('#vin').textContent;
+  assert.ok(/Toyota Yaris Cross/.test(txt));
+  assert.ok(/8,244 km/.test(txt), 'Distancia total del historial');
+  assert.ok(/9\.4 L\/100/.test(txt), 'Consumo promedio sin las cargas marcadas');
+  ['month', 'year', 'ytd', '12m', 'all'].forEach(function (p) {
+    ['eff', 'km', 'spend', 'price'].forEach(function (c) {
+      S.ui.carP = p; S.ui.carC = c; t.app.render();
+      var pr = problemas(t.doc.body); assert.deepEqual(pr, [], p + '/' + c + ': ' + pr.join('\n'));
+    });
+  });
+  // el historial no cuenta en el presupuesto
+  assert.equal(t.app.monthStats('2026-09').by.gasolina.spent, 0);
+  t.cerrar();
+});
+
+test('registrar una carga desde el formulario', function () {
+  var t = cargarApp(), S = t.app.S;
+  S.ui.tab = 'car'; t.app.render();
+  t.click('#fab');
+  assert.equal(t.$('#f_cat').value, 'gasolina');
+  assert.notEqual(t.$('#f_fuelbox').style.display, 'none');
+  t.escribir('#f_amt', '21,780'); t.escribir('#f_odo', '8,600'); t.escribir('#f_ppl', '726');
+  t.click('#sheet button[data-act="save-exp"]');
+  var e = S.expenses[S.expenses.length - 1], f = S.fuel.find(function (x) { return x.expId === e.id; });
+  assert.ok(f, 'La carga queda enlazada al gasto');
+  assert.equal(f.odo, 8600); assert.equal(f.l, 30); assert.equal(f.full, true);
+  // borrar el gasto borra la carga
+  t.app.act('edit-exp', { dataset: { id: e.id } });
+  t.click('#sheet [data-act="del-exp"]');
+  assert.ok(!S.fuel.some(function (x) { return x.expId === e.id; }));
+  t.cerrar();
+});
+
 test('tarjeta por defecto según la categoría', function () {
   var t = cargarApp();
   t.click('#fab');
@@ -428,7 +466,7 @@ test('respaldo: importar uno viejo lo actualiza y se puede deshacer', async func
   viejo.expenses = [{ id: 'resp1', ts: 2, date: S.ui.month + '-03', amt: 7000, cur: 'CRC', rate: 500, cat: 'comida', card: 'bct', merchant: 'Starbucks', note: '', intl: false }];
   await importar(t, viejo);
   S = t.app.S;
-  assert.equal(S.v, 20, 'El respaldo viejo pasa por la actualización');
+  assert.equal(S.v, 21, 'El respaldo viejo pasa por la actualización');
   assert.deepEqual(ids(S), ['resp1']);
   assert.ok(S.merchants.length > 0 && S.cats.some(function (c) { return c.id === 'medicos'; }));
   t.click('[data-act="tab"][data-v="set"]');

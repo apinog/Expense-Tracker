@@ -22,11 +22,11 @@ App personal de presupuesto y gastos en colones y dólares. Es una PWA de un sol
 
 ## Cómo está armada
 
-- **Estado:** un objeto `S` guardado en `localStorage` con la clave `gastos_tracker_v1`. Campos: `settings`, `fx`, `cats`, `cards`, `recurring`, `budgets` (`base` y `over` por mes), `goals`, `contribs`, `expenses`, `redeems`, `incomes` (ingresos extra: `{id,date,amt,cur,rate,note}`), `merchants`, `generated`, `ui`. La versión del esquema es `v` (hoy 20). Antes de importar un respaldo o de borrar todo, la app guarda una copia en `gastos_tracker_v1_antes` para poder deshacer. Importar pasa por `load()`, así un respaldo viejo se actualiza con las migraciones.
+- **Estado:** un objeto `S` guardado en `localStorage` con la clave `gastos_tracker_v1`. Campos: `settings`, `fx`, `cats`, `cards`, `recurring`, `budgets` (`base` y `over` por mes), `goals`, `contribs`, `expenses`, `redeems`, `incomes` (ingresos extra: `{id,date,amt,cur,rate,note}`), `fuel` (cargas de gasolina: `{id,date,odo,l,ppl,total,full,missed,expId?}`), `car` (`{name,year}`), `merchants`, `generated`, `ui`. La versión del esquema es `v` (hoy 21). Antes de importar un respaldo o de borrar todo, la app guarda una copia en `gastos_tracker_v1_antes` para poder deshacer. Importar pasa por `load()`, así un respaldo viejo se actualiza con las migraciones.
 - **Pantallas:** funciones `view*()` que devuelven HTML como texto. `render()` lo pone en `#vin`. Los eventos usan delegación con `data-act` y un `switch` en `act()`.
 - **Formularios:** hojas inferiores con `openSheet()`. Se ajustan al teclado con `visualViewport` y el botón Guardar queda fijo abajo.
 - **Layout tipo app:** `#app` es una columna fija; `#view` es el único elemento que scrollea. Encabezado y barra inferior no se mueven. No usar `position: sticky` ni `fixed` para cosas nuevas sin probar en iPhone.
-- **Pestañas:** Home, Expenses, Cards, Budget, Savings. Settings se abre con el ícono de arriba a la derecha.
+- **Pestañas:** Home, Expenses, Cards, Budget, Savings, Car. Settings se abre con el ícono de arriba a la derecha.
 - **Diseño:** tema "fintech" violeta (bloque `tema fintech` al final del CSS), fuente Plus Jakarta Sans, secciones como tarjetas redondeadas. Las categorías usan íconos de línea propios (`CATICO`, `catIco()`); las categorías creadas por el usuario usan su emoji.
 
 ## Modelo del gasto
@@ -43,6 +43,7 @@ App personal de presupuesto y gastos en colones y dólares. Es una PWA de un sol
 
 ## Reglas de negocio importantes
 
+- **Carro (pestaña Car):** Toyota Yaris Cross 2025. `S.fuel` trae el historial de Road Trip (jun 2025 a sep 2026, `FUEL0`, solo fechas; el usuario aceptó que esté en el repo) y las cargas nuevas, que se crean desde un gasto de Gas con "Fill-up details" (`expId` las enlaza; borrar el gasto borra la carga). El historial no cuenta en presupuestos. `fuelList()` calcula tramo y consumo: una carga cuenta para el consumo solo si ella y la anterior fueron a tanque lleno y no tiene `missed`. Filtros Month/Year/YTD/12M/All, métricas, gráficos (`drawSeries` con formato propio) e ideas (`carInsights()`). No hay API del precio de RECOPE (su página no permite leerla desde otra web): el precio actual es el de la última carga.
 - **Ingresos:** `settings.income` es el ingreso fijo mensual; `incomes` guarda bonos y pagos únicos. `monthIncome()` los suma y Home muestra la tasa de ahorro del mes.
 - **Moneda:** colones y dólares. Un interruptor cambia lo que se muestra. Presupuestos y metas guardan su moneda original.
 - **Tipo de cambio:** primero `api.hacienda.go.cr/indicadores/tc/dolar` (referencia BCCR, venta), luego `open.er-api.com`, luego `api.exchangerate-api.com`. Se refresca cada 6 horas. Si falla, usa el último guardado. El usuario también puede fijarlo a mano.

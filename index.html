@@ -365,6 +365,12 @@ input,select,textarea{border-radius:12px;background:var(--card2);border-color:tr
 .sheet input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-width:0;width:100%;text-align:left}
 .sheet input[type=date]::-webkit-date-and-time-value{text-align:left}
 .sheet textarea{height:auto}
+.mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.mt{background:var(--card2);border-radius:16px;padding:10px 12px;min-width:0}
+.mt small{display:block;color:var(--mute);font-size:12px}
+.mt b{display:block;font:700 17px var(--sans);letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mt em{display:block;font-style:normal;color:var(--mute);font-size:12px}
+#tabs button{font-size:10.5px}
 .grp{margin:0 16px;border-radius:18px;overflow:hidden;background:var(--panel)}
 .grp .row{border-bottom:1px solid var(--line)}
 .grp .row:last-child{border-bottom:0}
@@ -480,6 +486,38 @@ var MERCH0=[
   {name:'United Airlines',cat:'viajes',site:'united.com'},{name:'Avianca',cat:'viajes',site:'avianca.com'},{name:'Copa Airlines',cat:'viajes',site:'copaair.com'},{name:'Delta Air Lines',cat:'viajes',site:'delta.com'},{name:'Iberia',cat:'viajes',site:'iberia.com'},{name:'Marriott',cat:'viajes',site:'marriott.com'},{name:'Airbnb',cat:'viajes',site:'airbnb.com'},{name:'Booking.com',cat:'viajes',site:'booking.com'},{name:'Expedia',cat:'viajes',site:'expedia.com'},{name:'Uber',cat:'viajes',site:'uber.com'},
   {name:'Netflix',cat:'suscr',site:'netflix.com'},{name:'Spotify',cat:'suscr',site:'spotify.com'},{name:'Disney+',cat:'suscr',site:'disneyplus.com'},{name:'Max',cat:'suscr',site:'max.com'},{name:'Apple',cat:'suscr',site:'apple.com'},{name:'Amazon Prime',cat:'suscr',site:'primevideo.com'},{name:'Google One',cat:'suscr',site:'one.google.com'},{name:'ChatGPT',cat:'suscr',site:'chatgpt.com'},{name:'Uber One',cat:'suscr',site:'uber.com'},{name:'Viu',cat:'suscr',img:'m:viu'}
 ];
+/* historial de cargas de gasolina (de Road Trip, jun 2025 a sep 2026): [fecha, odómetro, litros, ₡/litro, total ₡, faltó registrar una carga antes] */
+var FUEL0=[
+  ['2025-06-01',80,30.661,692,21217.41,0],
+  ['2025-06-20',380,32.0,675.094,21603.0,0],
+  ['2025-07-03',785,31.08,665,20668.2,0],
+  ['2025-07-19',1094,28.57,665,18999.05,0],
+  ['2025-08-10',1428.5,29.954,664,19889.46,0],
+  ['2025-08-24',1734.8,29.48,664,19574.72,0],
+  ['2025-09-10',2036.5,29.433,663,19514.08,0],
+  ['2025-09-29',2362.5,33.186,663,22002.32,0],
+  ['2025-10-18',2695.2,30.061,677,20351.0,0],
+  ['2025-10-29',3019.3,27.415,677,18559.96,0],
+  ['2025-11-16',3305,25.944,662,17174.93,0],
+  ['2025-11-24',3586,27.295,662,18069.0,0],
+  ['2025-12-06',3873,26.663,662,17650.91,0],
+  ['2025-12-20',4214.8,30.765,643,19781.89,0],
+  ['2026-01-23',4491.9,28.866,636,18358.78,0],
+  ['2026-02-06',4653.8,16.327,626,10220.7,0],
+  ['2026-02-11',4964.1,26.173,626,16384.3,0],
+  ['2026-03-02',5228,25.801,628,16203.03,0],
+  ['2026-03-29',5522.3,27.778,633,17583.47,0],
+  ['2026-04-05',5812.5,19.6,633,12406.8,1],
+  ['2026-05-08',6231.5,13.679,733,10026.71,1],
+  ['2026-06-07',6542.3,31.341,753,23599.77,0],
+  ['2026-06-21',6777.7,25.857,753,19470.32,0],
+  ['2026-07-05',7038.9,25.622,753,19293.37,0],
+  ['2026-08-08',7605.3,29.317,701,20551.22,1],
+  ['2026-09-02',7826.1,28.607,704,20139.0,1],
+  ['2026-09-19',8085.2,24.855,726,18044.73,0],
+  ['2026-09-26',8324.2,20.56,726,14926.56,0]
+];
+function fuelSeed(){return FUEL0.map(function(f,i){return {id:'fh'+i,date:f[0],odo:f[1],l:f[2],ppl:f[3],total:f[4],full:true,missed:!!f[5]};});}
 var RECUR0=[
   {id:'r_tel',name:'Phone',cat:'telefono',amt:12287.38,cur:'CRC',card:'debcrc',merchant:'Liberty Costa Rica',day:15,fixed:true,intl:false,active:true},
   {id:'r_claude',name:'Claude',cat:'suscr',amt:20,cur:'USD',card:'amexblue',merchant:'Claude',day:27,auto:true,fixed:true,intl:true,active:true},
@@ -527,7 +565,7 @@ function pad(n){return String(n).padStart(2,'0');}
 function seed(){
   var start='2026-10', cur=ym(new Date());
   return {
-    v:20,
+    v:21,
     settings:{disp:'CRC',income:null,mileUSD:0.01,start:start,lastBackup:null,balDone:false,autoFrom:cur},
     fx:{rate:500,ts:0,manual:false,est:true},
     cats:clone(CATS0), cards:clone(CARDS0), recurring:clone(RECUR0),
@@ -543,7 +581,7 @@ function seed(){
       {id:'g_ccs',name:'Trip to Caracas',monthly:110000,from:'2027-02',to:'2027-06',target:550000,initial:0,color:'#B7791F'},
       {id:'g_march',name:'Marchamo',monthly:0,from:'',to:'2026-12',target:0,initial:0,color:'#C0392B'}
     ],
-    contribs:[], expenses:[], redeems:[], incomes:[], generated:{}, merchants:MERCH0.map(function(m,i){return {id:'m'+i,name:m.name,cat:m.cat,img:m.img||'',site:m.site||''};}),
+    contribs:[], expenses:[], redeems:[], incomes:[], fuel:fuelSeed(), car:{name:'Toyota Yaris Cross',year:2025}, generated:{}, merchants:MERCH0.map(function(m,i){return {id:'m'+i,name:m.name,cat:m.cat,img:m.img||'',site:m.site||''};}),
     ui:{tab:'home',home:'month',seen:{},dismiss:{},month:(cur<start?start:cur),scope:'base',fcat:'all',
         chart:{measure:'gasto',group:'cat',type:'bar',period:'month',from:'',to:'',cat:'all',card:'all',cum:true}}
   };
@@ -708,6 +746,12 @@ function load(){
         ['r_uberone','r_viu','r_marchamo'].forEach(function(id){if(!out.recurring.some(function(r){return r.id===id;})){var r0=clone(RECUR0.find(function(r){return r.id===id;}));if(r0.goal&&!out.goals.some(function(g){return g.id===r0.goal;}))r0.goal='';out.recurring.push(r0);}});
         out.v=20;
       }
+      if((out.v||1)<21){
+        if(!Array.isArray(out.fuel)||!out.fuel.length) out.fuel=fuelSeed();
+        if(!out.car) out.car={name:'Toyota Yaris Cross',year:2025};
+        out.v=21;
+      }
+      if(!Array.isArray(out.fuel)) out.fuel=[];
       if(!Array.isArray(out.incomes)) out.incomes=[];
       if(!Array.isArray(out.redeems)) out.redeems=[];
       out.ui.seen=out.ui.seen||{}; out.ui.dismiss=out.ui.dismiss||{};
@@ -1085,14 +1129,15 @@ function drawDonut(arr){
   }).join('');
   return '<svg class="ch" viewBox="0 0 160 160" style="max-width:190px;margin:0 auto">'+segs+'<text x="80" y="84" text-anchor="middle" style="font:600 15px var(--serif);fill:var(--ink)">'+short(tot)+'</text></svg><div class="legend">'+leg+'</div>';
 }
-function drawSeries(arr,type,ref){
+function drawSeries(arr,type,ref,fmt,refLabel){
+  fmt=fmt||short;
   var W=340,H=190,L=40,R=8,T=14,B=26,iw=W-L-R,ih=H-T-B;
   var max=niceMax(Math.max.apply(null,arr.map(function(a){return a.value;}).concat([ref||0,1e-9])));
   var y=function(v){return T+ih-v/max*ih;};
   var out='<svg class="ch" viewBox="0 0 '+W+' '+H+'" role="img">';
   for(var g=0;g<=3;g++){
     var gy=T+ih-ih*g/3;
-    out+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)"/><text x="'+(L-5)+'" y="'+(gy+4)+'" text-anchor="end">'+short(max*g/3)+'</text>';
+    out+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)"/><text x="'+(L-5)+'" y="'+(gy+4)+'" text-anchor="end">'+fmt(max*g/3)+'</text>';
   }
   var n=arr.length, step=Math.ceil(n/7);
   if(type==='col'){
@@ -1111,7 +1156,7 @@ function drawSeries(arr,type,ref){
     if(n>0) out+='<circle cx="'+X(n-1)+'" cy="'+y(arr[n-1].value)+'" r="3.5" fill="var(--blue)"/>';
   }
   if(ref>0){
-    out+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(ref)+'" y2="'+y(ref)+'" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="5 4"/><text x="'+(W-R)+'" y="'+(y(ref)-4)+'" text-anchor="end" style="fill:var(--warn)">Budget</text>';
+    out+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(ref)+'" y2="'+y(ref)+'" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="5 4"/><text x="'+(W-R)+'" y="'+(y(ref)-4)+'" text-anchor="end" style="fill:var(--warn)">'+(refLabel||'Budget')+'</text>';
   }
   return out+'</svg>';
 }
@@ -1149,6 +1194,142 @@ function chartSection(){
    +'<div style="margin:6px 0 10px"><span class="num" style="font:500 22px var(--serif)">'+money(total)+'</span> <span style="color:var(--mute)">'+(c.measure==='reward'?'in estimated rewards':'spent')+', '+list.length+' transactions</span></div>'
    +body+'</section>';
 }
+
+
+/* ================= carro: cargas de gasolina ================= */
+/* lista ordenada con distancia del tramo y consumo; una carga cuenta para el consumo solo si ella y la anterior
+   fueron a tanque lleno y no faltó registrar ninguna en el medio */
+function fuelList(){
+  var a=(S.fuel||[]).map(function(f){return Object.assign({},f);}).sort(function(x,y){return x.date<y.date?-1:(x.date>y.date?1:x.odo-y.odo);});
+  a.forEach(function(f,i){var p=a[i-1];f.trip=p&&f.odo>p.odo?f.odo-p.odo:0;f.ok=!!(p&&f.trip>0&&f.full!==false&&p.full!==false&&!f.missed);f.l100=f.ok?f.l/f.trip*100:null;});
+  return a;
+}
+function carRange(p){
+  var m=U().month, cur=ym(new Date());
+  if(p==='year') return [m.slice(0,4)+'-01',m.slice(0,4)+'-12'];
+  if(p==='ytd') return [cur.slice(0,4)+'-01',cur];
+  if(p==='12m') return [addMonths(cur,-11),cur];
+  if(p==='all') return ['0000-00','9999-99'];
+  return [m,m];
+}
+function carStats(list){
+  var o={n:list.length,spent:0,l:0,km:0,effL:0,effKm:0,tanks:0,days:0,best:null,worst:null};
+  list.forEach(function(f,i){
+    o.spent+=f.total; o.l+=f.l;
+    if(f.trip>0){o.km+=f.trip;o.tanks++;}
+    if(f.ok){o.effL+=f.l;o.effKm+=f.trip;if(!o.best||f.l100<o.best.l100)o.best=f;if(!o.worst||f.l100>o.worst.l100)o.worst=f;}
+  });
+  o.l100=o.effKm>0?o.effL/o.effKm*100:null; o.kml=o.l100?100/o.l100:null;
+  var paid=list.filter(function(f){return f.trip>0;}).reduce(function(a,f){return a+f.total;},0);
+  o.ppk=o.km>0?paid/o.km:null; o.ppl=o.l>0?o.spent/o.l:null; o.kmTank=o.tanks?o.km/o.tanks:null;
+  if(list.length>1){var d0=new Date(list[0].date+'T12:00'),d1=new Date(list[list.length-1].date+'T12:00');o.days=Math.round((d1-d0)/864e5/(list.length-1));}
+  return o;
+}
+function dec(v,n){return v==null?'—':v.toFixed(n);}
+function kmFmt(v){return nfN.format(Math.round(v))+' km';}
+function carInsights(all){
+  var out=[], today=ymd(new Date()), y=+today.slice(0,4), last=all[all.length-1];
+  if(!last) return out;
+  // manejo: este año contra el anterior
+  var kmDay=function(a,b){var s=all.filter(function(f){return f.date>=a&&f.date<=b;});var km=s.reduce(function(t,f){return t+f.trip;},0);if(!s.length)return null;var first=all.filter(function(f){return f.date<a;}).pop();var start=first?first.date:s[0].date;var days=Math.max(1,(new Date(Math.min(new Date(b+'T12:00'),new Date(last.date+'T12:00')))-new Date(start+'T12:00'))/864e5);return km/days;};
+  var now=kmDay(y+'-01-01',y+'-12-31'), prev=kmDay((y-1)+'-01-01',(y-1)+'-12-31');
+  if(now&&prev){var ch=Math.round((now/prev-1)*100);out.push({tone:ch<=0?'ok':'warn',t:'You are driving '+Math.abs(ch)+'% '+(ch<=0?'less':'more')+' than in '+(y-1),x:'About '+nfN.format(Math.round(now*30.4))+' km a month this year, versus '+nfN.format(Math.round(prev*30.4))+' in '+(y-1)+'.'});}
+  // consumo reciente contra el promedio
+  var ok=all.filter(function(f){return f.ok;});
+  if(ok.length>=4){
+    var avg=ok.reduce(function(a,f){return a+f.l;},0)/ok.reduce(function(a,f){return a+f.trip;},0)*100, r3=ok.slice(-3), rec=r3.reduce(function(a,f){return a+f.l;},0)/r3.reduce(function(a,f){return a+f.trip;},0)*100;
+    var same=Math.abs(rec-avg)<0.15;
+    out.push({tone:rec<=avg+0.15?'ok':'warn',t:'Last 3 tanks: '+dec(rec,1)+' L/100 km',x:(same?'In line with':(rec<avg?'Better than':'Worse than'))+' your '+dec(avg,1)+' L/100 km average ('+dec(100/rec,1)+' vs '+dec(100/avg,1)+' km/L).'});
+  }
+  // precio contra hace un año
+  var ago=ymd(new Date(Date.now()-365*864e5)), old=null; all.forEach(function(f){if(f.date<=ago)old=f;});
+  if(old){var dp=last.ppl-old.ppl;out.push({tone:dp>0?'warn':'ok',t:'Gas is ₡'+nfN.format(Math.round(last.ppl))+' per liter',x:(dp>=0?'₡'+nfN.format(Math.round(dp))+' more':'₡'+nfN.format(Math.round(-dp))+' less')+' than a year ago ('+(dp>=0?'+':'')+Math.round(dp/old.ppl*100)+'%). Official prices: RECOPE.'});}
+  // próxima carga
+  var lim=ymd(new Date(Date.now()-90*864e5)), rec90=all.filter(function(f){return f.date>=lim&&f.trip>0;});
+  if(rec90.length>=2){
+    var km90=rec90.reduce(function(a,f){return a+f.trip;},0), first90=all[all.indexOf(rec90[0])-1]||rec90[0];
+    var perDay=km90/Math.max(1,(new Date(last.date+'T12:00')-new Date(first90.date+'T12:00'))/864e5), tank=ok.slice(-6).reduce(function(a,f){return a+f.trip;},0)/Math.max(1,ok.slice(-6).length);
+    var next=addDays(last.date,Math.round(tank/perDay));
+    out.push({tone:'',t:'Next fill-up around '+shortDate(next),x:'You drive about '+Math.round(perDay)+' km a day and a tank lasts you about '+Math.round(tank)+' km.'});
+  }
+  // presupuesto del mes
+  var mm=ym(new Date()), st=monthStats(mm), g=st.by.gasolina;
+  if(g&&g.budget>0) out.push({tone:g.spent>g.budget?'bad':'ok',t:money(g.spent)+' of '+money(g.budget)+' gas budget',x:'Logged this month in Expenses.'});
+  return out;
+}
+function carSeries(all,metric,rng){
+  var a0=rng[0]==='0000-00'?(all[0]?all[0].date.slice(0,7):ym(new Date())):rng[0], a1=rng[1]==='9999-99'?ym(new Date()):rng[1];
+  if(metric==='eff') return all.filter(function(f){return f.ok&&f.date.slice(0,7)>=a0&&f.date.slice(0,7)<=a1;}).map(function(f){return {label:shortDate(f.date),value:f.l100};});
+  if(metric==='price') return all.filter(function(f){return f.date.slice(0,7)>=a0&&f.date.slice(0,7)<=a1;}).map(function(f){return {label:shortDate(f.date),value:f.ppl};});
+  var out=[], g=0;
+  for(var m=a0;m<=a1&&g<60;m=addMonths(m,1),g++){
+    var s=all.filter(function(f){return f.date.slice(0,7)===m;});
+    out.push({label:mshort(m),key:m,value:metric==='km'?s.reduce(function(a,f){return a+f.trip;},0):crcToDisp(s.reduce(function(a,f){return a+f.total;},0))});
+  }
+  return out;
+}
+function viewCar(){
+  var all=fuelList(), p=U().carP||'ytd', rng=carRange(p), c=S.car||{name:'Car',year:''};
+  var list=all.filter(function(f){var m=f.date.slice(0,7);return m>=rng[0]&&m<=rng[1];}), st=carStats(list), last=all[all.length-1];
+  var lbl={month:monthLabel(U().month),year:U().month.slice(0,4),ytd:'Year to date','12m':'Last 12 months',all:'All time'}[p];
+  var h='<div class="hero"><div class="htop"><div class="lbl">'+esc(c.name)+' · '+esc(String(c.year))+'</div><button class="link" style="color:#fff" data-act="edit-car">Edit</button></div>'
+    +'<div class="big num">'+(last?nfN.format(Math.round(last.odo)):'0')+' km</div>'
+    +'<div class="sub">'+(last?'Last fill-up '+dayLabel(last.date)+' at ₡'+nfN.format(Math.round(last.ppl))+' per liter':'No fill-ups yet')+'</div>'
+    +'<div class="hstats"><div><small>Efficiency</small><b class="num">'+dec(st.kml,1)+' km/L</b></div><div><small>Per km</small><b class="num">'+(st.ppk?money(crcToDisp(st.ppk)):'—')+'</b></div><div><small>Spent</small><b class="num">'+money(crcToDisp(st.spent))+'</b></div></div></div>';
+  h+='<section class="sec" style="padding:10px"><div class="seg">'+[['month','Month'],['year','Year'],['ytd','YTD'],['12m','12M'],['all','All']].map(function(o){return '<button data-act="carp" data-v="'+o[0]+'" class="'+(p===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div></section>';
+  var tile=function(k,v,sub){return '<div class="mt"><small>'+k+'</small><b class="num">'+v+'</b>'+(sub?'<em>'+sub+'</em>':'')+'</div>';};
+  h+='<section class="sec"><div class="shead"><h2 style="margin:0">'+esc(lbl)+'</h2><span>'+st.n+' fill-up'+(st.n===1?'':'s')+'</span></div>'
+    +(st.n?'<div class="mgrid">'
+      +tile('Gas spent',money(crcToDisp(st.spent)))+tile('Distance',kmFmt(st.km))
+      +tile('Liters',nfN.format(Math.round(st.l))+' L')+tile('Consumption',dec(st.l100,1)+' L/100',dec(st.kml,1)+' km/L')
+      +tile('Cost per km',st.ppk?money(crcToDisp(st.ppk)):'—')+tile('Avg price','₡'+(st.ppl?nfN.format(Math.round(st.ppl)):'—')+'/L')
+      +tile('Km per tank',st.kmTank?kmFmt(st.kmTank):'—')+tile('Days between',st.days?st.days+' days':'—')
+      +tile('Best tank',st.best?dec(st.best.l100,1)+' L/100':'—',st.best?shortDate(st.best.date):'')+tile('Worst tank',st.worst?dec(st.worst.l100,1)+' L/100':'—',st.worst?shortDate(st.worst.date):'')
+      +'</div>':'<div class="empty">No fill-ups in this period.</div>')+'</section>';
+  var ins=carInsights(all);
+  if(ins.length) h+='<section class="sec"><h2 style="margin-bottom:10px">Insights</h2>'+ins.map(function(i){return '<div class="ins '+(i.tone||'')+'"><div><b>'+esc(i.t)+'</b><span>'+esc(i.x)+'</span></div></div>';}).join('')
+    +'<a class="link" href="https://www.recope.go.cr/productos/precios-nacionales/tabla-precios/" target="_blank" rel="noopener">See official RECOPE prices</a></section>';
+  var cm=U().carC||'eff', crng=p==='month'?[addMonths(U().month,-11),U().month]:rng, ser=carSeries(all,cm,crng);
+  var budget=cm==='spend'?budgetDisp(U().month,'gasolina'):0;
+  var fmts={eff:function(v){return dec(v,1);},km:function(v){return nfN.format(Math.round(v));},spend:short,price:function(v){return '₡'+Math.round(v);}};
+  h+='<section class="sec"><h2 style="margin-bottom:10px">Charts</h2><div class="seg" style="margin-bottom:10px">'+[['eff','L/100'],['km','Km'],['spend','Spent'],['price','₡/L']].map(function(o){return '<button data-act="carc" data-v="'+o[0]+'" class="'+(cm===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>'
+    +(ser.length?drawSeries(ser,(cm==='km'||cm==='spend')?'col':'line',budget,fmts[cm],'Budget'):'<div class="empty">No data for this period.</div>')
+    +'<p class="hint" style="margin:8px 0 0">'+({eff:'Consumption per tank. Lower is better.',km:'Kilometers driven per month.',spend:'Gas spent per month.',price:'Price per liter you paid at each fill-up.'})[cm]+(p==='month'?' Showing the last 12 months.':'')+'</p></section>';
+  h+='<section class="sec"><div class="shead"><h2 style="margin:0">Fill-ups</h2><button class="link" data-act="add-fuel">+ Fill-up</button></div>'
+    +(list.length?list.slice().reverse().map(function(f){
+      return '<button class="fixrow" data-act="'+(f.expId?'edit-exp':'edit-fuel')+'" data-id="'+(f.expId||f.id)+'"><span class="nm">'+dayLabel(f.date)+'<small>'+nfN.format(Math.round(f.odo))+' km'+(f.trip?' · '+nfN.format(Math.round(f.trip))+' km trip':'')+' · '+(f.ok?dec(f.l100,1)+' L/100 km':(f.missed?'<span class="warnc">missed fill-up before</span>':(f.full===false?'not full':'first fill-up')))+'</small></span>'
+        +'<span class="num" style="text-align:right">'+money(crcToDisp(f.total))+'<small style="display:block;color:var(--mute);font-size:11.5px">'+dec(f.l,1)+' L · ₡'+Math.round(f.ppl)+'/L</small></span></button>';
+    }).join(''):'<div class="empty">No fill-ups in this period.</div>')+'</section>';
+  return h;
+}
+function fuelSheet(id){
+  var f=(S.fuel||[]).find(function(x){return x.id===id;}); if(!f) return;
+  sheetState={id:id};
+  var html='<h3>Edit fill-up</h3><p class="hint">From your history. It does not count in your monthly budget.</p>'
+    +'<div class="two"><div><label class="l">Date</label><input id="u_date" type="date" value="'+f.date+'"></div><div><label class="l">Odometer (km)</label><input id="u_odo" inputmode="decimal" value="'+f.odo+'"></div></div>'
+    +'<div class="two"><div><label class="l">Liters</label><input id="u_l" inputmode="decimal" value="'+f.l+'"></div><div><label class="l">Price per liter (₡)</label><input id="u_ppl" inputmode="decimal" value="'+f.ppl+'"></div></div>'
+    +'<label class="chk" style="margin-top:12px"><input type="checkbox" id="u_full"'+(f.full!==false?' checked':'')+'> Full tank</label>'
+    +'<label class="chk" style="margin-top:8px"><input type="checkbox" id="u_missed"'+(f.missed?' checked':'')+'> I missed logging a fill-up before this one</label>'
+    +'<div class="btns"><button class="btn danger" data-act="del-fuel">Delete</button><button class="btn" data-act="cancel">Cancel</button><button class="btn primary" data-act="save-fuel">Save</button></div>';
+  openSheet(html);
+}
+function carSheet(){
+  var c=S.car||{};
+  var html='<h3>Your car</h3><label class="l">Model</label><input id="v_name" value="'+esc(c.name||'')+'"><label class="l">Year</label><input id="v_year" inputmode="numeric" value="'+esc(String(c.year||''))+'">'
+    +'<div class="btns"><button class="btn" data-act="cancel">Cancel</button><button class="btn primary" data-act="save-car">Save</button></div>';
+  openSheet(html);
+}
+/* detalle de carga dentro del formulario de gasto (categoría Gas) */
+function fuelBoxHTML(cat,f){
+  var all=fuelList(), last=all.filter(function(x){return !f||x.id!==f.id;}).pop();
+  return '<div id="f_fuelbox" style="display:'+(cat==='gasolina'?'block':'none')+'"><label class="l">Fill-up details (optional)</label>'
+    +'<div class="two"><div><input id="f_odo" inputmode="decimal" value="'+(f?f.odo:'')+'" placeholder="Odometer (km)"></div><div><input id="f_l" inputmode="decimal" value="'+(f?f.l:'')+'" placeholder="Liters"></div></div>'
+    +'<input id="f_ppl" inputmode="decimal" value="'+(f?f.ppl:'')+'" placeholder="Price per liter (₡)" style="margin-top:8px">'
+    +'<p class="hint" style="margin:6px 0 0">'+(last?'Last fill-up: '+nfN.format(Math.round(last.odo))+' km at ₡'+Math.round(last.ppl)+'/L. ':'')+'Fill in two of amount, liters and price; the app works out the third.</p>'
+    +'<label class="chk" style="margin-top:8px"><input type="checkbox" id="f_full"'+(!f||f.full!==false?' checked':'')+'> Full tank</label>'
+    +'<label class="chk" style="margin-top:8px"><input type="checkbox" id="f_missed"'+(f&&f.missed?' checked':'')+'> I missed logging a fill-up before this one</label></div>';
+}
+function syncFuelBox(){var b=$('#f_fuelbox');if(b)b.style.display=$('#f_cat').value==='gasolina'?'block':'none';}
 
 /* ================= comercios ================= */
 function merchByName(n){var k=String(n||'').trim().toLowerCase();return k?S.merchants.find(function(m){return m.name.trim().toLowerCase()===k;}):null;}
@@ -1565,9 +1746,10 @@ var TABS=[
   ['exp','Expenses','<path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>'],
   ['cards','Cards','<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h3"/>'],
   ['meta','Budget','<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'],
-  ['save','Savings','<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>']
+  ['save','Savings','<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'],
+  ['car','Car','<path d="M5 17h14M4 13l2-5h12l2 5v4H4zM7 17v2M17 17v2"/><path d="M7.5 14.5h.01M16.5 14.5h.01"/>']
 ];
-var VIEWS={home:viewHome,exp:viewExp,cards:viewCards,meta:viewMeta,save:viewSave,set:viewSet};
+var VIEWS={home:viewHome,exp:viewExp,cards:viewCards,meta:viewMeta,save:viewSave,car:viewCar,set:viewSet};
 
 function monthOptions(m){
   var cur=ym(new Date()), first=addMonths(cur,-6);
@@ -1599,7 +1781,7 @@ function renderTabs(){
   }).join('')+'</div>';
   var fab=$('#fab');
   fab.classList.toggle('hide',t==='meta'||t==='set'||t==='cards');
-  fab.setAttribute('data-act',t==='save'?'add-contrib':'add-exp');
+  fab.setAttribute('data-act',t==='save'?'add-contrib':(t==='car'?'add-fuel':'add-exp'));
 }
 function render(){
   renderTop(); renderTabs();
@@ -1643,11 +1825,11 @@ var toastT;
 function toast(t){var el=$('#toast');el.textContent=t;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){el.classList.remove('show');},2200);}
 
 /* --- gasto --- */
-function expSheet(id,recurId,per){
+function expSheet(id,recurId,per,catPreset){
   var ed=id?S.expenses.find(function(x){return x.id===id;}):null;
   var rc=recurId?S.recurring.find(function(r){return r.id===recurId;}):null;
   var t=ymd(new Date()), m=U().month;
-  var cat0=ed?ed.cat:(rc?rc.cat:(U().lastCat&&catById(U().lastCat)?U().lastCat:'comida'));
+  var cat0=ed?ed.cat:(rc?rc.cat:(catPreset||(U().lastCat&&catById(U().lastCat)?U().lastCat:'comida')));
   var c0=catById(cat0)||S.cats[0];
   var x={amt:ed?ed.amt:'',cur:ed?ed.cur:'CRC',rate:ed?ed.rate:rate(),cat:c0.id,card:ed?ed.card:null,intl:ed?!!ed.intl:!!c0.defIntl,
     merchant:ed?(ed.merchant||''):'',via:ed?(ed.via||''):'',note:ed?(ed.note||''):'',date:ed?ed.date:(t.slice(0,7)===m?t:m+'-01')};
@@ -1667,6 +1849,7 @@ function expSheet(id,recurId,per){
     +'<label class="l">Store</label><input id="f_merchant" list="mlist" value="'+esc(x.merchant)+'" placeholder="Pick one or type a new one" autocomplete="off"><datalist id="mlist">'+merchOptions(x.cat)+'</datalist>'
     +'<div class="mchips" id="f_mchips">'+merchChipsHTML(x.cat,x.merchant)+'</div>'
     +viaBoxHTML(x.cat,x.via)
+    +fuelBoxHTML(x.cat,ed?(S.fuel||[]).find(function(f){return f.expId===ed.id;}):null)
     +'<label class="l">Payment method</label><div class="cpick" id="f_cpick">'+S.cards.filter(function(c){return c.active!==false||(ed&&ed.card===c.id);}).sort(function(a,b){return (a.nosug?1:0)-(b.nosug?1:0);}).map(function(c){return '<button type="button" data-act="pick-card" data-id="'+c.id+'" class="'+(c.id===x.card?'on':'')+'">'+cardThumb(c)+esc(c.name)+'</button>';}).join('')+'</div><input type="hidden" id="f_card" value="'+(x.card||'')+'">'
 
     +'<div class="two"><div><label class="l">Date</label><input id="f_date" type="date" value="'+x.date+'"></div><div><label class="l">Exchange rate</label><input id="f_rate" type="text" inputmode="decimal" value="'+x.rate+'"></div></div>'
@@ -1821,7 +2004,15 @@ function saveExp(){
   if(!f.date){toast('Pick a date');return;}
   var o={date:f.date,amt:round2(f.amt),cur:f.cur,rate:f.rate,cat:f.cat,card:f.card,merchant:f.merchant,via:f.via||'',note:f.note,per:f.per||'',intl:f.intl,goal:f.goal||'',reimb:f.reimb||null,split:f.split||null};
   if(sheetState.id){Object.assign(S.expenses.find(function(e){return e.id===sheetState.id;}),o);}
-  else{S.expenses.push(Object.assign({id:uid(),ts:Date.now()},sheetState.recurId?{recurId:sheetState.recurId}:{},o));}
+  else{var nid=uid();S.expenses.push(Object.assign({id:nid,ts:Date.now()},sheetState.recurId?{recurId:sheetState.recurId}:{},o));}
+  /* detalle de carga de gasolina enlazado al gasto */
+  var eid=sheetState.id||nid, odo=num($('#f_odo')?$('#f_odo').value:''), fl=num($('#f_l')?$('#f_l').value:''), fp=num($('#f_ppl')?$('#f_ppl').value:''), crc=o.cur==='USD'?o.amt*o.rate:o.amt;
+  S.fuel=(S.fuel||[]).filter(function(x){return x.expId!==eid;});
+  if(o.cat==='gasolina'&&(odo>0||fl>0||fp>0)){
+    if(!(fl>0)&&fp>0) fl=round2(crc/fp*1000)/1000;
+    if(!(fp>0)&&fl>0) fp=round2(crc/fl);
+    S.fuel.push({id:'f_'+eid,expId:eid,date:o.date,odo:odo>0?odo:0,l:fl>0?fl:0,ppl:fp>0?fp:0,total:round2(crc),full:$('#f_full').checked,missed:$('#f_missed').checked});
+  }
   if(sheetState.ap){
     var ap=sheetState.ap; S.settings.apLast=ap.txt;
     if(f.merchant){S.settings.apMerch=S.settings.apMerch||{};S.settings.apMerch[normTxt(ap.raw)]=f.merchant;}
@@ -2121,7 +2312,7 @@ function act(name,el){
     case 'del-redeem': if(confirm('Delete this redemption?')){S.redeems=S.redeems.filter(function(r){return r.id!==d.id;});save();render();} break;
     case 'k-photo-reset': sheetState.photo=defaultImg(sheetState.id); var cc=Object.assign({},cardById(sheetState.id),{img:sheetState.photo}); $('#k_prev').innerHTML=cardBig(cc); break;
     case 'save-exp': saveExp(); break;
-    case 'del-exp': if(confirm('Delete this expense?')){S.expenses=S.expenses.filter(function(e){return e.id!==sheetState.id;});save();closeSheet();toast('Expense deleted');render();} break;
+    case 'del-exp': if(confirm('Delete this expense?')){S.expenses=S.expenses.filter(function(e){return e.id!==sheetState.id;});S.fuel=(S.fuel||[]).filter(function(f){return f.expId!==sheetState.id;});save();closeSheet();toast('Expense deleted');render();} break;
     case 'pay-fixed': expSheet(null,d.id,d.per); break;
     case 'cat-go': U().fcat=d.id; U().tab='exp'; save(); render(); scrollTop0(); break;
     case 'scope': U().scope=d.v; save(); render(); break;
@@ -2140,6 +2331,18 @@ function act(name,el){
       if(sheetState.id) Object.assign(S.recurring.find(function(x){return x.id===sheetState.id;}),ro); else S.recurring.push(Object.assign({id:'r_'+uid()},ro));
       save(); closeSheet(); render(); toast('Bill saved'); break;
     case 'del-recur': if(confirm('Delete this bill? Expenses already logged are kept.')){S.recurring=S.recurring.filter(function(x){return x.id!==sheetState.id;});save();closeSheet();render();} break;
+    case 'carp': U().carP=d.v; save(); render(); break;
+    case 'carc': U().carC=d.v; save(); render(); break;
+    case 'add-fuel': expSheet(null,null,null,'gasolina'); break;
+    case 'edit-fuel': fuelSheet(d.id); break;
+    case 'save-fuel':
+      var fu=S.fuel.find(function(x){return x.id===sheetState.id;}), uo=num($('#u_odo').value), ul=num($('#u_l').value), up=num($('#u_ppl').value);
+      if(!(uo>0)||!(ul>0)||!(up>0)){toast('Enter odometer, liters and price');break;}
+      Object.assign(fu,{date:$('#u_date').value||fu.date,odo:uo,l:ul,ppl:up,total:round2(ul*up),full:$('#u_full').checked,missed:$('#u_missed').checked});
+      save(); closeSheet(); render(); toast('Fill-up saved'); break;
+    case 'del-fuel': if(confirm('Delete this fill-up from your history?')){S.fuel=S.fuel.filter(function(x){return x.id!==sheetState.id;});save();closeSheet();render();} break;
+    case 'edit-car': carSheet(); break;
+    case 'save-car': S.car={name:$('#v_name').value.trim()||'Car',year:$('#v_year').value.trim()}; save(); closeSheet(); render(); break;
     case 'add-income': incomeSheet(); break;
     case 'edit-income': incomeSheet(d.id); break;
     case 'save-income':
@@ -2242,7 +2445,7 @@ document.addEventListener('input',function(e){
       var ml=$('#mlist'); if(ml) ml.innerHTML=merchOptions(t.value);
       var c=catById(t.value);
       if(!sheetState.intlTouched) $('#f_intl').checked=!!(c&&c.defIntl);
-      syncViaBox();
+      syncViaBox(); syncFuelBox();
       autoCard(false);
     }
     if(t.id==='f_intl'){sheetState.intlTouched=true;autoCard(false);}

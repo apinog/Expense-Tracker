@@ -82,17 +82,18 @@ function datosViejos(v) {
     d.recurring = d.recurring.filter(function (r) { return ['r_uberone', 'r_viu', 'r_marchamo'].indexOf(r.id) < 0; });
     delete d.incomes;
   }
+  if (v < 21) { delete d.fuel; delete d.car; }
   if (v < 2) delete d.redeems;
   return d;
 }
 
-for (var v = 1; v <= 20; v++) (function (v) {
+for (var v = 1; v <= 21; v++) (function (v) {
   test('datos de la versión ' + v + ' se conservan al abrir la app', function () {
     var viejo = datosViejos(v);
     var t = cargarApp(viejo);
     var S = clone(t.app.S); // copia: los objetos de jsdom vienen de otra ventana
     assert.deepEqual(t.errores, []);
-    assert.equal(S.v, 20, 'La versión debe quedar en 20');
+    assert.equal(S.v, 21, 'La versión debe quedar en 21');
 
     // lo del usuario sigue igual
     assert.equal(S.settings.disp, 'USD');
@@ -155,6 +156,7 @@ for (var v = 1; v <= 20; v++) (function (v) {
     assert.equal(viu.every, 3); assert.equal(viu.card, 'paypal'); assert.equal(viu.amt, 20.99);
     assert.equal(S.recurring.find(function (r) { return r.id === 'r_uberone'; }).every, 12);
     assert.ok(Array.isArray(S.incomes));
+    assert.equal(S.fuel.length, 28, 'Se agrega el historial de gasolina'); assert.equal(S.car.name, 'Toyota Yaris Cross');
     var rec = function (id) { return S.recurring.find(function (r) { return r.id === id; }); };
     assert.equal(rec('r_claude').day, 27); assert.equal(rec('r_claude').auto, true);
     assert.equal(rec('r_yt').day, 23); assert.equal(rec('r_loan').day, 2); assert.equal(rec('r_gym').day, 15);
@@ -171,7 +173,7 @@ for (var v = 1; v <= 20; v++) (function (v) {
     if (v >= 5 && v < 9) assert.equal(merch('Amazon').site, 'amazon.es', 'Un sitio puesto a mano no se cambia');
     if (v < 5) assert.equal(S.expenses.find(function (e) { return e.id === 'e3'; }).merchant, 'Costa Rica Country Club');
     if (v < 6) assert.equal(S.expenses.find(function (e) { return e.id === 'e4'; }).merchant, 'Liberty Costa Rica');
-    if (v === 20) assert.deepEqual(S.expenses, viejo.expenses, 'Con la versión actual no se toca nada');
+    if (v === 21) assert.deepEqual(S.expenses, viejo.expenses, 'Con la versión actual no se toca nada');
 
     // la app se ve bien con los datos migrados
     ['home', 'exp', 'cards', 'meta', 'save', 'set'].forEach(function (p) {
@@ -184,7 +186,7 @@ for (var v = 1; v <= 20; v++) (function (v) {
     t.app.render();
     t.click('[data-act="tab"][data-v="home"]');
     var g = t.guardado();
-    assert.equal(g.v, 20);
+    assert.equal(g.v, 21);
     assert.equal(g.expenses.length, 6);
     t.cerrar();
 
