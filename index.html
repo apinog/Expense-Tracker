@@ -371,6 +371,23 @@ input,select,textarea{border-radius:12px;background:var(--card2);border-color:tr
 .mt b{display:block;font:700 17px var(--sans);letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mt em{display:block;font-style:normal;color:var(--mute);font-size:12px}
 #tabs button{font-size:10.5px}
+.cpick{transform:translateZ(0);align-items:flex-start}
+.cpick button{transform:translateZ(0)}
+.chw{position:relative}
+.chw line,.chw text,.chw polyline,.chw polygon,.chw .dot{pointer-events:none}
+.ctip{position:absolute;left:0;top:0;display:none;z-index:4;max-width:78%;background:var(--ink);color:var(--bg);font:500 12.5px/1.35 var(--sans);padding:7px 10px;border-radius:12px;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.ctip.show{display:block}
+.ctip b{display:block;font-weight:700}
+.chw .dot,.chw .guide{display:none}
+.chw .dot.on,.chw .guide.on{display:inline}
+.chw.sel rect.cbar{opacity:.4}
+.chw.sel rect.cbar.on{opacity:1}
+.chw.sel circle.seg{opacity:.45}
+.chw.sel circle.seg.on{opacity:1}
+.chw.sel .brow2,.chw.sel .legend>div{opacity:.5}
+.chw.sel .legend>div.on{opacity:1}
+.chw.sel .brow2.on{opacity:1}
+.chw [data-tip]{cursor:pointer}
 .grp{margin:0 16px;border-radius:18px;overflow:hidden;background:var(--panel)}
 .grp .row{border-bottom:1px solid var(--line)}
 .grp .row:last-child{border-bottom:0}
@@ -1111,26 +1128,29 @@ function niceMax(v){
   return n*p;
 }
 function drawBars(arr){
-  var max=Math.max.apply(null,arr.map(function(a){return a.value;}).concat([1e-9]));
-  return arr.map(function(a){
-    return '<div class="brow2"><span class="nm">'+esc(a.label)+'</span><span class="tr"><i style="width:'+(a.value/max*100)+'%"></i></span><span class="vl num">'+short(a.value)+'</span></div>';
-  }).join('');
+  var max=Math.max.apply(null,arr.map(function(a){return a.value;}).concat([1e-9])), tot=arr.reduce(function(t,a){return t+a.value;},0);
+  return '<div class="chw">'+arr.map(function(a,i){
+    return '<div class="brow2" data-i="'+i+'" data-tip="'+esc('<b>'+esc(a.label)+'</b>'+money(a.value)+(tot>0?' · '+Math.round(a.value/tot*100)+'%':''))+'"><span class="nm">'+esc(a.label)+'</span><span class="tr"><i style="width:'+(a.value/max*100)+'%"></i></span><span class="vl num">'+short(a.value)+'</span></div>';
+  }).join('')+'<div class="ctip"></div></div>';
 }
 function drawDonut(arr){
   var tot=arr.reduce(function(a,x){return a+x.value;},0);
   if(tot<=0) return '<div class="empty">No data for this period.</div>';
   var R=54,C=2*Math.PI*R,off=0;
   var segs=arr.map(function(x,i){
-    var len=C*x.value/tot,s='<circle r="'+R+'" cx="80" cy="80" fill="none" stroke="'+PAL[i%PAL.length]+'" stroke-width="26" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 80 80)"/>';
+    var len=C*x.value/tot,s='<circle class="seg" data-i="'+i+'" data-tip="'+esc('<b>'+esc(x.label)+'</b>'+money(x.value)+' · '+Math.round(x.value/tot*100)+'%')+'" r="'+R+'" cx="80" cy="80" fill="none" stroke="'+PAL[i%PAL.length]+'" stroke-width="26" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 80 80)"/>';
     off+=len;return s;
   }).join('');
   var leg=arr.map(function(x,i){
-    return '<div><i style="background:'+PAL[i%PAL.length]+'"></i><span>'+esc(x.label)+'</span><b class="num">'+short(x.value)+'</b><span style="flex:none;color:var(--mute)">'+Math.round(x.value/tot*100)+'%</span></div>';
+    return '<div data-i="'+i+'" data-tip="'+esc('<b>'+esc(x.label)+'</b>'+money(x.value)+' · '+Math.round(x.value/tot*100)+'%')+'"><i style="background:'+PAL[i%PAL.length]+'"></i><span>'+esc(x.label)+'</span><b class="num">'+short(x.value)+'</b><span style="flex:none;color:var(--mute)">'+Math.round(x.value/tot*100)+'%</span></div>';
   }).join('');
-  return '<svg class="ch" viewBox="0 0 160 160" style="max-width:190px;margin:0 auto">'+segs+'<text x="80" y="84" text-anchor="middle" style="font:600 15px var(--serif);fill:var(--ink)">'+short(tot)+'</text></svg><div class="legend">'+leg+'</div>';
+  return '<div class="chw"><svg class="ch" viewBox="0 0 160 160" style="max-width:190px;margin:0 auto">'+segs+'<text x="80" y="84" text-anchor="middle" style="font:600 15px var(--serif);fill:var(--ink)">'+short(tot)+'</text></svg><div class="legend">'+leg+'</div><div class="ctip"></div></div>';
 }
-function drawSeries(arr,type,ref,fmt,refLabel){
-  fmt=fmt||short;
+/* etiqueta larga para el globito: día o mes completo si el punto tiene clave de fecha */
+function tipLabel(a){var k=a.key||'';return /^\d{4}-\d{2}-\d{2}$/.test(k)?dayLabel(k):(/^\d{4}-\d{2}$/.test(k)?monthLabel(k):a.label);}
+function drawSeries(arr,type,ref,fmt,refLabel,tipFmt){
+  fmt=fmt||short; tipFmt=tipFmt||function(v){return money(v);};
+  var tip=function(a){return esc('<b>'+esc(tipLabel(a))+'</b>'+tipFmt(a.value,a));};
   var W=340,H=190,L=40,R=8,T=14,B=26,iw=W-L-R,ih=H-T-B;
   var max=niceMax(Math.max.apply(null,arr.map(function(a){return a.value;}).concat([ref||0,1e-9])));
   var y=function(v){return T+ih-v/max*ih;};
@@ -1144,7 +1164,8 @@ function drawSeries(arr,type,ref,fmt,refLabel){
     var slot=iw/n,bw=Math.min(28,slot*0.7);
     arr.forEach(function(a,i){
       var cx=L+(i+0.5)*slot,h=a.value/max*ih;
-      out+='<rect x="'+(cx-bw/2)+'" y="'+(T+ih-h)+'" width="'+bw+'" height="'+h+'" rx="3" fill="var(--blue)"/>';
+      out+='<rect class="cbar" data-i="'+i+'" x="'+(cx-bw/2)+'" y="'+(T+ih-h)+'" width="'+bw+'" height="'+h+'" rx="3" fill="var(--blue)"/>';
+      out+='<rect class="hit" data-i="'+i+'" data-tip="'+tip(a)+'" x="'+(L+i*slot)+'" y="'+T+'" width="'+slot+'" height="'+ih+'" fill="transparent"/>';
       if(i%step===0) out+='<text x="'+cx+'" y="'+(H-8)+'" text-anchor="middle">'+esc(a.label)+'</text>';
     });
   }else{
@@ -1154,11 +1175,16 @@ function drawSeries(arr,type,ref,fmt,refLabel){
     out+='<polyline points="'+pts+'" fill="none" stroke="var(--blue)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>';
     arr.forEach(function(a,i){if(i%step===0) out+='<text x="'+X(i)+'" y="'+(H-8)+'" text-anchor="middle">'+esc(a.label)+'</text>';});
     if(n>0) out+='<circle cx="'+X(n-1)+'" cy="'+y(arr[n-1].value)+'" r="3.5" fill="var(--blue)"/>';
+    var hw=n>1?iw/(n-1):iw;
+    arr.forEach(function(a,i){
+      out+='<line class="guide" data-i="'+i+'" x1="'+X(i)+'" x2="'+X(i)+'" y1="'+T+'" y2="'+(T+ih)+'" stroke="var(--mute)" stroke-dasharray="3 3"/><circle class="dot" data-i="'+i+'" cx="'+X(i)+'" cy="'+y(a.value)+'" r="4.5" fill="var(--blue)" stroke="var(--panel)" stroke-width="2"/>';
+      out+='<rect class="hit" data-i="'+i+'" data-tip="'+tip(a)+'" x="'+(X(i)-hw/2)+'" y="'+T+'" width="'+hw+'" height="'+ih+'" fill="transparent"/>';
+    });
   }
   if(ref>0){
     out+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(ref)+'" y2="'+y(ref)+'" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="5 4"/><text x="'+(W-R)+'" y="'+(y(ref)-4)+'" text-anchor="end" style="fill:var(--warn)">'+(refLabel||'Budget')+'</text>';
   }
-  return out+'</svg>';
+  return '<div class="chw">'+out+'</svg><div class="ctip"></div></div>';
 }
 function chartSection(){
   fixChart();
@@ -1259,8 +1285,8 @@ function carInsights(all){
 }
 function carSeries(all,metric,rng){
   var a0=rng[0]==='0000-00'?(all[0]?all[0].date.slice(0,7):ym(new Date())):rng[0], a1=rng[1]==='9999-99'?ym(new Date()):rng[1];
-  if(metric==='eff') return all.filter(function(f){return f.ok&&f.date.slice(0,7)>=a0&&f.date.slice(0,7)<=a1;}).map(function(f){return {label:shortDate(f.date),value:f.l100};});
-  if(metric==='price') return all.filter(function(f){return f.date.slice(0,7)>=a0&&f.date.slice(0,7)<=a1;}).map(function(f){return {label:shortDate(f.date),value:f.ppl};});
+  if(metric==='eff') return all.filter(function(f){return f.ok&&f.date.slice(0,7)>=a0&&f.date.slice(0,7)<=a1;}).map(function(f){return {label:shortDate(f.date),key:f.date,value:f.l100};});
+  if(metric==='price') return all.filter(function(f){return f.date.slice(0,7)>=a0&&f.date.slice(0,7)<=a1;}).map(function(f){return {label:shortDate(f.date),key:f.date,value:f.ppl};});
   var out=[], g=0;
   for(var m=a0;m<=a1&&g<60;m=addMonths(m,1),g++){
     var s=all.filter(function(f){return f.date.slice(0,7)===m;});
@@ -1293,7 +1319,7 @@ function viewCar(){
   var budget=cm==='spend'?budgetDisp(U().month,'gasolina'):0;
   var fmts={eff:function(v){return dec(v,1);},km:function(v){return nfN.format(Math.round(v));},spend:short,price:function(v){return '₡'+Math.round(v);}};
   h+='<section class="sec"><h2 style="margin-bottom:10px">Charts</h2><div class="seg" style="margin-bottom:10px">'+[['eff','L/100'],['km','Km'],['spend','Spent'],['price','₡/L']].map(function(o){return '<button data-act="carc" data-v="'+o[0]+'" class="'+(cm===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>'
-    +(ser.length?drawSeries(ser,(cm==='km'||cm==='spend')?'col':'line',budget,fmts[cm],'Budget'):'<div class="empty">No data for this period.</div>')
+    +(ser.length?drawSeries(ser,(cm==='km'||cm==='spend')?'col':'line',budget,fmts[cm],'Budget',{eff:function(v){return dec(v,1)+' L/100 km · '+dec(100/v,1)+' km/L';},km:function(v){return nfN.format(Math.round(v))+' km';},spend:function(v){return money(v);},price:function(v){return '₡'+nfN.format(Math.round(v))+' per liter';}}[cm]):'<div class="empty">No data for this period.</div>')
     +'<p class="hint" style="margin:8px 0 0">'+({eff:'Consumption per tank. Lower is better.',km:'Kilometers driven per month.',spend:'Gas spent per month.',price:'Price per liter you paid at each fill-up.'})[cm]+(p==='month'?' Showing the last 12 months.':'')+'</p></section>';
   h+='<section class="sec"><div class="shead"><h2 style="margin:0">Fill-ups</h2><button class="link" data-act="add-fuel">+ Fill-up</button></div>'
     +(list.length?list.slice().reverse().map(function(f){
@@ -1482,7 +1508,7 @@ function viewYear(){
     +'<div class="big num">'+money(tot.s)+'</div>'
     +'<div class="sub">'+(tot.b>0?'Budget so far '+money(tot.b)+'. '+(d>=0?money(d)+' under.':money(-d)+' over.'):'No months with a budget yet.')+'</div>'
     +'<div class="hstats"><div><small>Saved</small><b class="num">'+money(tot.sv)+'</b></div><div><small>Rewards</small><b class="num">'+money(tot.rw)+'</b></div><div><small>Paid from savings</small><b class="num">'+money(tot.g)+'</b></div></div></div>';
-  h+='<section class="sec"><h2 style="margin-bottom:8px">Spending by month</h2>'+drawSeries(rows.map(function(r){return {label:mshort(r.k),value:r.s};}),'col',0)+'</section>';
+  h+='<section class="sec"><h2 style="margin-bottom:8px">Spending by month</h2>'+drawSeries(rows.map(function(r){return {label:mshort(r.k),key:r.k,value:r.s};}),'col',0)+'</section>';
   h+='<section class="sec"><h2 style="margin-bottom:8px">Month by month</h2><table class="tbl"><thead><tr><th>Month</th><th>Budget</th><th>Spent</th><th>Saved</th><th>Rewards</th></tr></thead><tbody>'
     +rows.filter(function(r){return r.active;}).map(function(r){return '<tr><td><button class="link" data-act="goto-month" data-v="'+r.k+'">'+monthLabel(r.k).split(' ')[0]+'</button></td><td class="num">'+(r.b?short(r.b):'—')+'</td><td class="num '+(r.b&&r.s>r.b?'badc':'')+'">'+short(r.s)+'</td><td class="num">'+short(r.sv)+'</td><td class="num">'+short(r.rw)+'</td></tr>';}).join('')
     +'<tr class="tot"><td>Total</td><td class="num">'+short(tot.b)+'</td><td class="num">'+short(tot.s)+'</td><td class="num">'+short(tot.sv)+'</td><td class="num">'+short(tot.rw)+'</td></tr></tbody></table></section>';
@@ -1931,10 +1957,12 @@ function expDraft(){
     split:($('#f_split')&&$('#f_split').checked)?(function(){var a=num($('#f_amt').value)||0,mi=num($('#f_smine').value),g=num($('#f_sgot').value);return {mine:isNaN(mi)?round2(a/2):Math.min(a,mi),got:isNaN(g)?0:g};})():null,
     reimb:($('#f_reimb')&&$('#f_reimb').checked)?(function(){var re=num($('#f_rexp').value),rg=num($('#f_rgot').value);return {exp:isNaN(re)?null:re,got:isNaN(rg)?null:rg};})():null};
 }
-function setCardPick(id){
+/* noScroll: cuando la tocás vos, la fila no se mueve (en iPhone el desplazamiento dejaba el marco anterior dibujado) */
+function setCardPick(id,noScroll){
   $('#f_card').value=id;
   $$('#f_cpick button').forEach(function(b){b.classList.toggle('on',b.dataset.id===id);});
-  var b=$('#f_cpick button.on'); if(b&&b.scrollIntoView) try{b.scrollIntoView({block:'nearest',inline:'center'});}catch(e){}
+  var b=$('#f_cpick button.on'), row=$('#f_cpick');
+  if(!noScroll&&b&&row){var x=b.offsetLeft-(row.clientWidth-b.offsetWidth)/2;row.scrollLeft=Math.max(0,x);}
 }
 /* tarjeta por defecto: la que más usás en esa categoría; si no hay historial, Amex Blue para compras del exterior,
    online, viajes y suscripciones, y Amex EconoMía para el día a día. Las tarjetas de respaldo no se eligen solas. */
@@ -2271,7 +2299,7 @@ function act(name,el){
     case 'split-half': var ah=num($('#f_amt').value); if(ah>0) $('#f_smine').value=fmtIn(ah/2); break;
     case 'ap-paste': pasteAP(); break;
     case 'use-card': setCardPick(d.id); sheetState.cardTouched=true; updatePrev(); break;
-    case 'pick-card': setCardPick(d.id); sheetState.cardTouched=true; updatePrev(); break;
+    case 'pick-card': setCardPick(d.id,true); sheetState.cardTouched=true; updatePrev(); break;
     case 'pick-merch':
       $('#f_merchant').value=d.n; $$('#f_mchips button').forEach(function(b){b.classList.toggle('on',b===el);});
       var pf=merchantProfile(d.n); if(pf&&!sheetState.id){var ct=sheetState.catTouched;sheetState.catTouched=true;applyProfile(pf,false);sheetState.catTouched=ct;} else autoCard(false);
@@ -2391,7 +2419,20 @@ function act(name,el){
 }
 
 /* ================= eventos ================= */
+function hideTips(except){$$('.chw.sel').forEach(function(w){if(w===except)return;w.classList.remove('sel');$$('.on',w).forEach(function(x){x.classList.remove('on');});var t=$('.ctip',w);if(t)t.classList.remove('show');});}
+function showTip(el,e){
+  var w=el.closest('.chw'), t=$('.ctip',w), i=el.getAttribute('data-i'); hideTips(w);
+  $$('.on',w).forEach(function(x){x.classList.remove('on');});
+  $$('[data-i="'+i+'"]',w).forEach(function(x){x.classList.add('on');});
+  w.classList.add('sel'); t.innerHTML=el.getAttribute('data-tip'); t.classList.add('show');
+  var wr=w.getBoundingClientRect(), tw=t.offsetWidth, th=t.offsetHeight, x=e.clientX-wr.left, y=e.clientY-wr.top;
+  t.style.left=Math.max(4,Math.min(wr.width-tw-4,x-tw/2))+'px';
+  t.style.top=(y-th-14>=0?y-th-14:Math.min(wr.height-th,y+16))+'px';
+}
 document.addEventListener('click',function(e){
+  var tp=e.target.closest&&e.target.closest('[data-tip]');
+  if(tp&&tp.closest('.chw')){showTip(tp,e);return;}
+  hideTips(null);
   var el=e.target.closest('[data-act]'); if(!el) return;
   if(el.dataset.act==='ovl'&&e.target!==el) return;
   act(el.dataset.act,el);
