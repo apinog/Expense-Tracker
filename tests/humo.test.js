@@ -41,7 +41,7 @@ function registrarGasto(t, g) {
 test('arranca sin datos y sin errores', function () {
   var t = cargarApp();
   assert.deepEqual(t.errores, []);
-  assert.equal(t.app.S.v, 21);
+  assert.equal(t.app.S.v, 22);
   assert.ok(t.$('#vin').innerHTML.length > 0, 'La pantalla de inicio quedó vacía');
   sinProblemas(t, 'Inicio');
   t.cerrar();
@@ -314,6 +314,46 @@ test('los cobros automáticos se registran solos y no vuelven si se borran', fun
   t2.cerrar();
 });
 
+test('Viu se comparte 50/50: solo la mitad cuenta y el resto se debe', function () {
+  var base = cargarApp(); var d = JSON.parse(JSON.stringify(base.app.S)); base.cerrar();
+  var hoy = new Date(), m = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+  d.settings.autoFrom = m;
+  d.recurring.forEach(function (r) { if (r.id === 'r_viu') { r.day = 1; r.start = m; r.auto = true; } /* Viu se paga a mano; aquí se prueba el registro automático de un fijo compartido */ });
+  var t = cargarApp(d, { autoLog: true });
+  var v = t.app.S.expenses.find(function (e) { return e.recurId === 'r_viu'; });
+  assert.ok(v, 'Viu se registra solo');
+  assert.equal(v.amt, 20.99);
+  assert.deepEqual(JSON.parse(JSON.stringify(v.split)), { mine: 10.5, got: 0 });
+  // el formulario del fijo trae la mitad marcada
+  t.app.render(); t.click('[data-act="tab"][data-v="set"]');
+  var vr = t.app.S.recurring.find(function (r) { return r.id === 'r_viu'; });
+  assert.equal(vr.split, true);
+  assert.ok(!cargarApp().app.S.recurring.find(function (r) { return r.id === 'r_viu'; }).auto, 'Viu no es cobro automático');
+  t.cerrar();
+  var t2 = cargarApp();
+  t2.app.S.ui.tab = 'exp'; t2.app.S.ui.month = '2026-12'; t2.app.render();
+  t2.click('[data-act="pay-fixed"][data-id="r_viu"]');
+  assert.equal(t2.$('#f_split').checked, true, 'Al registrar Viu a mano, ya viene compartido');
+  assert.ok(Math.abs(parseFloat(t2.$('#f_smine').value) - 10.5) <= 0.5, 'La mitad de 20.99');
+  assert.deepEqual(t2.errores, []);
+  t2.cerrar();
+});
+
+test('carro: Year deja ver años anteriores (2025)', function () {
+  var t = cargarApp(), S = t.app.S;
+  S.ui.tab = 'car'; S.ui.carP = 'year'; t.app.render();
+  var cy = new Date().getFullYear();
+  assert.ok(t.$('#vin').textContent.indexOf(String(cy)) >= 0);
+  for (var i = 0; i < 5; i++) { var b = t.$('[data-act="cary"][data-v="-1"]'); if (!b.disabled) t.click('[data-act="cary"][data-v="-1"]'); }
+  assert.equal(S.ui.carY, 2025, 'No baja de 2025, el primer año con cargas');
+  assert.ok(t.$('[data-act="cary"][data-v="-1"]').disabled);
+  var txt = t.$('#vin').textContent;
+  assert.ok(/\d+ fill-ups/.test(txt) && !/ 0 fill-ups/.test(txt), 'Muestra las cargas de 2025');
+  var pr = problemas(t.doc.body); assert.deepEqual(pr, []);
+  assert.deepEqual(t.errores, []);
+  t.cerrar();
+});
+
 test('fijos cada 3 meses y anuales aparecen solo cuando tocan', function () {
   var t = cargarApp(), S = t.app.S;
   var nombres = function (m) { S.ui.month = m; S.ui.tab = 'exp'; t.app.render(); return t.$('#vin').textContent; };
@@ -468,7 +508,7 @@ test('respaldo: importar uno viejo lo actualiza y se puede deshacer', async func
   viejo.expenses = [{ id: 'resp1', ts: 2, date: S.ui.month + '-03', amt: 7000, cur: 'CRC', rate: 500, cat: 'comida', card: 'bct', merchant: 'Starbucks', note: '', intl: false }];
   await importar(t, viejo);
   S = t.app.S;
-  assert.equal(S.v, 21, 'El respaldo viejo pasa por la actualización');
+  assert.equal(S.v, 22, 'El respaldo viejo pasa por la actualización');
   assert.deepEqual(ids(S), ['resp1']);
   assert.ok(S.merchants.length > 0 && S.cats.some(function (c) { return c.id === 'medicos'; }));
   t.click('[data-act="tab"][data-v="set"]');

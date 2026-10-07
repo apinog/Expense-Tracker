@@ -47,6 +47,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 .seg.mini button{color:#fff;padding:4px 11px;font-size:13px}
 .seg.mini button.on{background:#fff;color:var(--navy)}
 .mrow{display:flex;align-items:center;gap:4px;margin:6px -8px 0}
+.ystep{display:flex;align-items:center;gap:2px;margin-left:-10px}
+.ystep button{width:40px;height:36px;border:0;background:transparent;color:var(--blue);font-size:26px;line-height:1;cursor:pointer}
+.ystep button:disabled{opacity:.25}
 .mnav{width:44px;height:40px;border:0;background:transparent;color:#fff;font-size:26px;line-height:1}
 .msel{flex:1;appearance:none;-webkit-appearance:none;background:transparent;border:0;color:#fff;font:600 16px var(--serif);text-align:center;text-align-last:center;padding:8px 0}
 .msel option{color:#000}
@@ -542,7 +545,7 @@ var RECUR0=[
   {id:'r_gym',name:'Country Club',cat:'gym',amt:49000,cur:'CRC',card:'debcrc',merchant:'Costa Rica Country Club',day:15,fixed:false,intl:false,active:true},
   {id:'r_loan',name:'Car loan',cat:'prestamo',amt:650,fee:1,cur:'USD',card:'debcrc',merchant:'Grupo Financiero CAFSA',day:2,fixed:false,intl:false,active:true},
   {id:'r_uberone',name:'Uber One',cat:'suscr',amt:29999,cur:'CRC',card:'amexblue',merchant:'Uber One',day:14,every:12,start:'2026-12',auto:true,fixed:true,intl:false,active:true},
-  {id:'r_viu',name:'Viu',cat:'suscr',amt:20.99,cur:'USD',card:'paypal',merchant:'Viu',day:2,every:3,start:'2026-12',auto:true,fixed:true,intl:true,active:true},
+  {id:'r_viu',name:'Viu',cat:'suscr',amt:20.99,cur:'USD',card:'paypal',merchant:'Viu',day:2,every:3,start:'2026-12',fixed:true,intl:true,active:true,split:true},
   {id:'r_marchamo',name:'Marchamo',cat:'otros',amt:0,cur:'CRC',card:'debcrc',merchant:'Marchamo',day:15,every:12,start:'2026-12',auto:false,fixed:false,intl:false,active:true,goal:'g_march'}
 ];
 
@@ -582,7 +585,7 @@ function pad(n){return String(n).padStart(2,'0');}
 function seed(){
   var start='2026-10', cur=ym(new Date());
   return {
-    v:21,
+    v:22,
     settings:{disp:'CRC',income:null,mileUSD:0.01,start:start,lastBackup:null,balDone:false,autoFrom:cur},
     fx:{rate:500,ts:0,manual:false,est:true},
     cats:clone(CATS0), cards:clone(CARDS0), recurring:clone(RECUR0),
@@ -768,6 +771,10 @@ function load(){
         if(!out.car) out.car={name:'Toyota Yaris Cross',year:2025};
         out.v=21;
       }
+      if((out.v||1)<22){
+        var vu22=out.recurring.find(function(r){return r.id==='r_viu';}); if(vu22&&vu22.split==null){vu22.split=true;vu22.auto=false;} // Viu se comparte 50/50 con un primo y se paga a mano
+        out.v=22;
+      }
       if(!Array.isArray(out.fuel)) out.fuel=[];
       if(!Array.isArray(out.incomes)) out.incomes=[];
       if(!Array.isArray(out.redeems)) out.redeems=[];
@@ -934,7 +941,7 @@ function ensureRecurring(m,force){
     if(r.active===false||!billDue(r,m)) return;
     if(S.expenses.some(function(e){return e.recurId===r.id&&mOf(e)===m;})) return;
     S.expenses.push({id:uid(),ts:Date.now(),date:m+'-'+pad(Math.min(r.day||1,dmax)),amt:r.amt,cur:r.cur,rate:rate(),
-      cat:r.cat,card:r.card,merchant:r.merchant||r.name,note:'',intl:!!r.intl,recurId:r.id,per:m});
+      cat:r.cat,card:r.card,merchant:r.merchant||r.name,note:'',intl:!!r.intl,recurId:r.id,per:m,split:recurSplit(r,r.amt)});
     n++;
   });
   S.generated[m]=true; if(n) save(); return n;
@@ -950,6 +957,8 @@ function fixedStatus(m){
     return {r:r,e:e};
   });
 }
+/* fijo compartido a medias: la mitad es mía, el resto queda como pendiente de cobrar */
+function recurSplit(r,amt){return r.split&&amt>0?{mine:round2(amt/2),got:0}:null;}
 var LEAD=10; // días antes del vencimiento en que aparece la cuota del mes siguiente
 function dueDate(r,m){return m+'-'+pad(Math.min(r.day||1,daysIn(m)));}
 /* fijos con cobro automático (Claude, YouTube): se registran solos el día del cobro.
@@ -965,7 +974,7 @@ function autoLogBills(){
       var k=r.id+'|'+m; if(done[k]) continue;
       if(S.expenses.some(function(e){return e.recurId===r.id&&mOf(e)===m;})){done[k]=true;continue;}
       var d=dueDate(r,m); if(d>today) continue;
-      S.expenses.push({id:uid(),ts:Date.now(),date:d,amt:round2(r.amt+(r.fee||0)),cur:r.cur,rate:rate(),cat:r.cat,card:r.card,merchant:r.merchant||r.name,note:'Logged automatically',intl:!!r.intl,recurId:r.id,per:m,auto:true});
+      S.expenses.push({id:uid(),ts:Date.now(),date:d,amt:round2(r.amt+(r.fee||0)),cur:r.cur,rate:rate(),cat:r.cat,card:r.card,merchant:r.merchant||r.name,note:'Logged automatically',intl:!!r.intl,recurId:r.id,per:m,auto:true,split:recurSplit(r,round2(r.amt+(r.fee||0)))});
       done[k]=true; n++;
     }
   });
@@ -1230,9 +1239,12 @@ function fuelList(){
   a.forEach(function(f,i){var p=a[i-1];f.trip=p&&f.odo>p.odo?f.odo-p.odo:0;f.ok=!!(p&&f.trip>0&&f.full!==false&&p.full!==false&&!f.missed);f.l100=f.ok?f.l/f.trip*100:null;});
   return a;
 }
+/* año elegido en Car > Year: va del primer año con cargas al actual */
+function carYears(){var cy=+ym(new Date()).slice(0,4), f=(S.fuel||[]).reduce(function(a,x){return Math.min(a,+x.date.slice(0,4)||a);},cy);return [f,cy];}
+function carYear(){var r=carYears(), y=U().carY||r[1];return Math.max(r[0],Math.min(r[1],y));}
 function carRange(p){
   var m=U().month, cur=ym(new Date());
-  if(p==='year') return [m.slice(0,4)+'-01',m.slice(0,4)+'-12'];
+  if(p==='year'){var y=carYear();return [y+'-01',y+'-12'];}
   if(p==='ytd') return [cur.slice(0,4)+'-01',cur];
   if(p==='12m') return [addMonths(cur,-11),cur];
   if(p==='all') return ['0000-00','9999-99'];
@@ -1297,14 +1309,16 @@ function carSeries(all,metric,rng){
 function viewCar(){
   var all=fuelList(), p=U().carP||'ytd', rng=carRange(p), c=S.car||{name:'Car',year:''};
   var list=all.filter(function(f){var m=f.date.slice(0,7);return m>=rng[0]&&m<=rng[1];}), st=carStats(list), last=all[all.length-1];
-  var lbl={month:monthLabel(U().month),year:U().month.slice(0,4),ytd:'Year to date','12m':'Last 12 months',all:'All time'}[p];
+  var lbl={month:monthLabel(U().month),year:String(carYear()),ytd:'Year to date','12m':'Last 12 months',all:'All time'}[p];
   var h='<div class="hero"><div class="htop"><div class="lbl">'+esc(c.name)+' · '+esc(String(c.year))+'</div><button class="link" style="color:#fff" data-act="edit-car">Edit</button></div>'
     +'<div class="big num">'+(last?nfN.format(Math.round(last.odo)):'0')+' km</div>'
     +'<div class="sub">'+(last?'Last fill-up '+dayLabel(last.date)+' at ₡'+nfN.format(Math.round(last.ppl))+' per liter':'No fill-ups yet')+'</div>'
     +'<div class="hstats"><div><small>Efficiency</small><b class="num">'+dec(st.kml,1)+' km/L</b></div><div><small>Per km</small><b class="num">'+(st.ppk?money(crcToDisp(st.ppk)):'—')+'</b></div><div><small>Spent</small><b class="num">'+money(crcToDisp(st.spent))+'</b></div></div></div>';
   h+='<section class="sec" style="padding:10px"><div class="seg">'+[['month','Month'],['year','Year'],['ytd','YTD'],['12m','12M'],['all','All']].map(function(o){return '<button data-act="carp" data-v="'+o[0]+'" class="'+(p===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div></section>';
   var tile=function(k,v,sub){return '<div class="mt"><small>'+k+'</small><b class="num">'+v+'</b>'+(sub?'<em>'+sub+'</em>':'')+'</div>';};
-  h+='<section class="sec"><div class="shead"><h2 style="margin:0">'+esc(lbl)+'</h2><span>'+st.n+' fill-up'+(st.n===1?'':'s')+'</span></div>'
+  var yr=carYears(), cyr=carYear();
+  var ttl=p==='year'?'<div class="ystep"><button data-act="cary" data-v="-1" aria-label="Previous year"'+(cyr<=yr[0]?' disabled':'')+'>‹</button><h2 style="margin:0">'+cyr+'</h2><button data-act="cary" data-v="1" aria-label="Next year"'+(cyr>=yr[1]?' disabled':'')+'>›</button></div>':'<h2 style="margin:0">'+esc(lbl)+'</h2>';
+  h+='<section class="sec"><div class="shead">'+ttl+'<span>'+st.n+' fill-up'+(st.n===1?'':'s')+'</span></div>'
     +(st.n?'<div class="mgrid">'
       +tile('Gas spent',money(crcToDisp(st.spent)))+tile('Distance',kmFmt(st.km))
       +tile('Liters',nfN.format(Math.round(st.l))+' L')+tile('Consumption',dec(st.l100,1)+' L/100',dec(st.kml,1)+' km/L')
@@ -1658,7 +1672,7 @@ function viewMeta(){
   h+='<section class="sec"><h2>Recurring bills</h2><p class="hint">They show up as pending when they are due. Auto-pay ones log themselves.</p>'
     +S.recurring.map(function(r){
       var c=catById(r.cat), cd=cardById(r.card);
-      return '<button class="row" style="padding-left:0;padding-right:0;background:transparent" data-act="edit-recur" data-id="'+r.id+'"><div class="ic">'+merchIc(r.merchant||r.name,catIco(c,'fill'))+'</div><div class="mid"><b>'+esc(r.name)+'</b><small>'+freqText(r)+(cd?' · '+esc(cd.name):'')+(r.auto?' · auto-pay':'')+(r.active===false?' · paused':'')+'</small></div><div class="amt"><b class="num">'+(r.amt>0?money(r.amt,r.cur):'Varies')+'</b>'+(r.fee?'<small>+ '+money(r.fee,r.cur)+' fee</small>':'')+'</div></button>';
+      return '<button class="row" style="padding-left:0;padding-right:0;background:transparent" data-act="edit-recur" data-id="'+r.id+'"><div class="ic">'+merchIc(r.merchant||r.name,catIco(c,'fill'))+'</div><div class="mid"><b>'+esc(r.name)+'</b><small>'+freqText(r)+(cd?' · '+esc(cd.name):'')+(r.auto?' · auto-pay':'')+(r.split?' · split 50/50':'')+(r.active===false?' · paused':'')+'</small></div><div class="amt"><b class="num">'+(r.amt>0?money(r.amt,r.cur):'Varies')+'</b>'+(r.fee?'<small>+ '+money(r.fee,r.cur)+' fee</small>':'')+'</div></button>';
     }).join('')+'<button class="btn ghost" data-act="add-recur">Add bill</button></section>';
   return h;
 }
@@ -1861,6 +1875,7 @@ function expSheet(id,recurId,per,catPreset){
     merchant:ed?(ed.merchant||''):'',via:ed?(ed.via||''):'',note:ed?(ed.note||''):'',date:ed?ed.date:(t.slice(0,7)===m?t:m+'-01')};
   x.per=ed?(ed.recurId?(ed.per||ed.date.slice(0,7)):''):(rc?(per||m):'');
   if(rc){x.amt=rc.amt>0?round2(rc.amt+(rc.fee||0)):'';x.cur=rc.cur;x.card=rc.card;x.intl=!!rc.intl;x.merchant=rc.merchant||rc.name;if(rc.fee)x.note='Includes '+money(rc.fee,rc.cur)+' transfer fee';}
+  var sp0=ed?ed.split:(rc?recurSplit(rc,x.amt||0)||(rc.split?{mine:'',got:0}:null):null);
   sheetState={id:id||null,recurId:rc?rc.id:null,cardTouched:!!(ed||rc),intlTouched:!!(ed||rc),catTouched:!!(ed||rc)};
   var quick=(!ed&&!rc)?frequentMerchants():[];
   var merchants={};S.expenses.forEach(function(e){if(e.merchant)merchants[e.merchant]=1;});
@@ -1883,9 +1898,9 @@ function expSheet(id,recurId,per,catPreset){
     +'<label class="chk" style="margin-top:12px"><input type="checkbox" id="f_intl"'+(x.intl?' checked':'')+'> International purchase, app or streaming from abroad</label>'
     +'<label class="l">Note</label><input id="f_note" value="'+esc(x.note)+'" placeholder="Optional">'
     +(S.goals.length?'<label class="l">Paying from a savings goal?</label><select id="f_goal"><option value="">No, regular monthly spending</option>'+S.goals.map(function(g){return '<option value="'+g.id+'"'+((ed?ed.goal:(rc&&rc.goal))===g.id?' selected':'')+'>Yes, from '+esc(g.name)+'</option>';}).join('')+'</select>':'')
-    +'<label class="chk" style="margin-top:14px"><input type="checkbox" id="f_split"'+(ed&&ed.split?' checked':'')+'> Split with someone</label>'
-    +'<div id="f_sbox" style="display:'+(ed&&ed.split?'block':'none')+'"><div class="two"><div><label class="l">My share</label><div style="display:flex;gap:6px"><input id="f_smine" inputmode="decimal" value="'+(ed&&ed.split?ed.split.mine:'')+'" placeholder="0" style="flex:1;min-width:0"><button type="button" class="btn" data-act="split-half" style="flex:none;padding:0 12px">½</button></div></div>'
-    +'<div><label class="l">Paid back to me</label><input id="f_sgot" inputmode="decimal" value="'+(ed&&ed.split&&ed.split.got?ed.split.got:'')+'" placeholder="Pending"></div></div>'
+    +'<label class="chk" style="margin-top:14px"><input type="checkbox" id="f_split"'+(sp0?' checked':'')+'> Split with someone</label>'
+    +'<div id="f_sbox" style="display:'+(sp0?'block':'none')+'"><div class="two"><div><label class="l">My share</label><div style="display:flex;gap:6px"><input id="f_smine" inputmode="decimal" value="'+(sp0?sp0.mine:'')+'" placeholder="0" style="flex:1;min-width:0"><button type="button" class="btn" data-act="split-half" style="flex:none;padding:0 12px">½</button></div></div>'
+    +'<div><label class="l">Paid back to me</label><input id="f_sgot" inputmode="decimal" value="'+(sp0&&sp0.got?sp0.got:'')+'" placeholder="Pending"></div></div>'
     +'<p class="hint" style="margin:6px 0 0">Only your share counts in your budget. The rest shows on Home as owed to you.</p></div>'
 +'<label class="chk" style="margin-top:14px"><input type="checkbox" id="f_reimb"'+(ed&&ed.reimb?' checked':'')+'> Insurance reimburses me</label>'
     +'<div id="f_rbox" style="display:'+(ed&&ed.reimb?'block':'none')+'"><div class="two"><div><label class="l">Expected reimbursement</label><input id="f_rexp" inputmode="decimal" value="'+(ed&&ed.reimb&&ed.reimb.exp!=null?ed.reimb.exp:'')+'" placeholder="Opcional"></div>'
@@ -2093,19 +2108,21 @@ function recurSheet(id){
   var html='<h3>'+(id?'Edit bill':'New bill')+'</h3>'
     +'<label class="l">Name</label><input id="r_name" value="'+esc(r.name)+'">'
     +'<label class="l">Amount</label><div class="two" style="grid-template-columns:1fr 112px"><input id="r_amt" type="number" inputmode="decimal" step="any" value="'+r.amt+'"><select id="r_cur"><option value="CRC"'+(r.cur==='CRC'?' selected':'')+'>₡ colones</option><option value="USD"'+(r.cur==='USD'?' selected':'')+'>$ dollars</option></select></div>'
-    +'<label class="l">Extra fee (same currency, optional)</label><input id="r_fee" type="number" inputmode="decimal" step="any" min="0" value="'+(r.fee||'')+'" placeholder="0">'
     +'<label class="l">Category</label><select id="r_cat">'+S.cats.map(function(c){return '<option value="'+c.id+'"'+(c.id===r.cat?' selected':'')+'>'+esc(c.name)+'</option>';}).join('')+'</select>'
     +'<label class="l">Payment method</label><select id="r_card">'+S.cards.map(function(c){return '<option value="'+c.id+'"'+(c.id===r.card?' selected':'')+'>'+esc(c.name)+'</option>';}).join('')+'</select>'
     +'<div class="two"><div><label class="l">Store</label><input id="r_merchant" value="'+esc(r.merchant)+'"></div><div><label class="l">Due day</label><input id="r_day" type="text" inputmode="numeric" value="'+r.day+'"></div></div>'
     +'<p class="hint" style="margin:6px 0 0">The last day to pay it, or the day it is charged automatically.</p>'
     +'<div class="two"><div><label class="l">Repeats</label><select id="r_every">'+[[1,'Monthly'],[3,'Every 3 months'],[6,'Every 6 months'],[12,'Yearly']].map(function(o){return '<option value="'+o[0]+'"'+((r.every||1)===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div>'
     +'<div><label class="l">Next charge month</label>'+monthSelect('r_start',r.start||ym(new Date()))+'</div></div>'
+    +'<label class="chk" style="margin-top:14px"><input type="checkbox" id="r_auto"'+(r.auto?' checked':'')+'> Charged automatically (auto-pay or direct debit)</label>'
+    +'<details class="more" style="margin-top:14px"><summary>More options'+(function(){var on=[];if(r.fee)on.push('fee');if(r.goal)on.push('from savings');if(r.intl)on.push('international');if(r.split)on.push('split 50/50');if(r.active===false)on.push('paused');return on.length?' · '+on.join(', '):'';})()+'</summary>'
+    +'<label class="l">Extra fee (same currency, optional)</label><input id="r_fee" type="number" inputmode="decimal" step="any" min="0" value="'+(r.fee||'')+'" placeholder="0">'
     +(S.goals.length?'<label class="l">Paid from a savings goal?</label><select id="r_goal"><option value="">No</option>'+S.goals.map(function(g){return '<option value="'+g.id+'"'+(r.goal===g.id?' selected':'')+'>'+esc(g.name)+'</option>';}).join('')+'</select>':'')
-    +'<label class="chk" style="margin-top:12px"><input type="checkbox" id="r_auto"'+(r.auto?' checked':'')+'> Charged automatically (auto-pay or direct debit)</label>'
     +'<label class="chk" style="margin-top:12px"><input type="checkbox" id="r_fixed"'+(r.fixed?' checked':'')+'> The amount almost never changes</label>'
     +'<label class="chk" style="margin-top:8px"><input type="checkbox" id="r_intl"'+(r.intl?' checked':'')+'> International purchase</label>'
-    +'<label class="chk" style="margin-top:8px"><input type="checkbox" id="r_active"'+(r.active!==false?' checked':'')+'> Active</label>'
-    +'<p class="hint" style="margin-top:10px">Changes apply to months not logged yet.</p>'
+    +'<label class="chk" style="margin-top:8px"><input type="checkbox" id="r_split"'+(r.split?' checked':'')+'> Split 50/50 with someone</label>'
+    +'<label class="chk" style="margin-top:8px"><input type="checkbox" id="r_active"'+(r.active!==false?' checked':'')+'> Active (uncheck to pause it)</label>'
+    +'<p class="hint" style="margin-top:10px">Changes apply to months not logged yet.</p></details>'
     +'<div class="btns">'+(id?'<button class="btn danger" data-act="del-recur">Delete</button>':'')+'<button class="btn" data-act="cancel">Cancel</button><button class="btn primary" data-act="save-recur">Save</button></div>';
   openSheet(html);
 }
@@ -2355,11 +2372,12 @@ function act(name,el){
     case 'save-recur':
       var rn=$('#r_name').value.trim(), ra=num($('#r_amt').value);
       if(!rn||!(ra>=0)){toast('Enter a name and amount');break;}
-      var ro={name:rn,amt:ra,fee:num($('#r_fee').value)||0,cur:$('#r_cur').value,cat:$('#r_cat').value,card:$('#r_card').value,merchant:$('#r_merchant').value.trim()||rn,day:Math.max(1,Math.min(31,parseInt($('#r_day').value)||1)),fixed:$('#r_fixed').checked,auto:$('#r_auto').checked,intl:$('#r_intl').checked,active:$('#r_active').checked,every:+$('#r_every').value||1,start:$('#r_start').value,goal:$('#r_goal')?$('#r_goal').value:''};
+      var ro={name:rn,amt:ra,fee:num($('#r_fee').value)||0,cur:$('#r_cur').value,cat:$('#r_cat').value,card:$('#r_card').value,merchant:$('#r_merchant').value.trim()||rn,day:Math.max(1,Math.min(31,parseInt($('#r_day').value)||1)),fixed:$('#r_fixed').checked,auto:$('#r_auto').checked,intl:$('#r_intl').checked,split:$('#r_split').checked,active:$('#r_active').checked,every:+$('#r_every').value||1,start:$('#r_start').value,goal:$('#r_goal')?$('#r_goal').value:''};
       if(sheetState.id) Object.assign(S.recurring.find(function(x){return x.id===sheetState.id;}),ro); else S.recurring.push(Object.assign({id:'r_'+uid()},ro));
       save(); closeSheet(); render(); toast('Bill saved'); break;
     case 'del-recur': if(confirm('Delete this bill? Expenses already logged are kept.')){S.recurring=S.recurring.filter(function(x){return x.id!==sheetState.id;});save();closeSheet();render();} break;
     case 'carp': U().carP=d.v; save(); render(); break;
+    case 'cary': U().carY=carYear()+(+d.v); save(); render(); break;
     case 'carc': U().carC=d.v; save(); render(); break;
     case 'add-fuel': expSheet(null,null,null,'gasolina'); break;
     case 'edit-fuel': fuelSheet(d.id); break;
