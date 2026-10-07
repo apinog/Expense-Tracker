@@ -55,13 +55,16 @@ App personal de presupuesto y gastos en colones y dólares. Es una PWA de un sol
 
 ## Cómo probar
 
-Todavía no hay pruebas en el repo. **Primera tarea sugerida:** crear `tests/` con:
+Las pruebas están en `tests/` (ver `tests/README.md`). Node está en `/usr/local/bin` (agregarlo al PATH si `node` no aparece). Desde `tests/`:
 
-1. Una prueba rápida en jsdom: cargar `index.html`, recorrer las pestañas, registrar gastos en colones y dólares, probar todas las combinaciones del explorador de gráficos y verificar que no aparezcan `NaN` ni `undefined`.
-2. Una prueba de migración: guardar datos con una versión vieja de `v` y comprobar que se conservan.
-3. Capturas con Playwright a 390x844 de cada pestaña y de las hojas de formulario.
+- `npm test`: jsdom. Recorre todas las pestañas, registra gastos, prueba todas las combinaciones de los gráficos, Apple Pay, fijos, compartidos, ingresos, carro, respaldos, y migra datos de cada versión vieja (1 a la actual). Busca `NaN`/`undefined` en pantalla.
+- `npm run capturas`: Playwright con WebKit a 390x844 (cada pestaña y cada hoja; revisa ancho y letra de 16px). Quedan en `tests/capturas/` (fuera del repo).
+- `cargarApp(datos, {autoLog:true})` en `tests/ayuda.js`; por defecto el registro automático de fijos está apagado en las pruebas (`window.__noAutoLog`) para no depender del día.
+- Cada cambio de datos: subir `v`, agregar la migración y el caso en `datosViejos()` de `tests/migracion.test.js`.
+- Para ver la app instalada con la falla de iOS 26: Playwright con viewport 390x785, `screen` 390x844 y `navigator.standalone=true` (no reproduce el recorte real de WebKit; lo confirma solo el iPhone).
+- Antes de publicar algo visual: capturas en modo oscuro (el usuario lo usa) y mandarlas.
 
-Para probar con el service worker hay que servir por HTTP (`python3 -m http.server`), porque no funciona con `file://`. La app expone `window.__app` para las pruebas.
+Para probar con el service worker hay que servir por HTTP (`python3 -m http.server`), porque no funciona con `file://`. La app expone `window.__app` (`S`, `render`, `rewards`, `monthStats`, `act`) para las pruebas.
 
 ## Despliegue
 
@@ -69,9 +72,9 @@ GitHub Pages desde la rama `main`, carpeta raíz. Después de subir cambios tard
 
 ## Pendientes
 
-- Logos de comercios: el usuario los va a mandar como imágenes.
-- Detalle de gasolina por carga: litros, precio por litro, kilometraje y rendimiento. Diseñarlo después de unas dos semanas de uso real.
-- Vigilar cómo se ve y se siente en un iPhone real. No se probó en Safari de verdad, solo en un navegador simulado.
+- Primera prueba real del atajo de Apple Pay: el usuario manda captura de la notificación y del formulario después de pegar. Si falla, rehacer el archivo del atajo (ya en inglés) y decirle solo los pasos mínimos.
+- Saber si BAC cuenta los bares como restaurante (EconoMía 2% o 0%). Por ahora, salidas → Amex Blue.
+- Valor de la milla (Premia, Gane Premios): sin dato; usa `mileUSD` 0.01.
 
 ## Cómo trabajar con el usuario
 
