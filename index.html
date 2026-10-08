@@ -445,7 +445,7 @@ var CATS0=[
   {id:'gasolina',name:'Gas',emoji:'⛽',group:'gasolina',kind:'variable'},
   {id:'super',name:'Groceries and home',emoji:'🛒',group:'super',kind:'variable'},
   {id:'salud',name:'Pharmacy and health',emoji:'💊',group:'salud',kind:'variable'},
-  {id:'medicos',name:'Doctor visits',emoji:'🩺',group:'clinicas',kind:'variable'},
+  {id:'medicos',name:'Doctor visits',emoji:'🩺',group:'clinicas',kind:'variable',yearly:true},
   {id:'comida',name:'Eating out',emoji:'🍔',group:'rest',kind:'variable'},
   {id:'salidas',name:'Going out and fun',emoji:'🎟️',group:'entret',kind:'variable'},
   {id:'online',name:'Online shopping',emoji:'📦',group:'otros',kind:'variable',defIntl:true},
@@ -589,13 +589,13 @@ function pad(n){return String(n).padStart(2,'0');}
 function seed(){
   var start='2026-10', cur=ym(new Date());
   return {
-    v:22,
+    v:23,
     settings:{disp:'CRC',income:null,mileUSD:0.01,start:start,lastBackup:null,balDone:false,autoFrom:cur},
     fx:{rate:500,ts:0,manual:false,est:true},
     cats:clone(CATS0), cards:clone(CARDS0), recurring:clone(RECUR0),
     budgets:{base:{
       prestamo:{amt:651,cur:'USD'},gym:{amt:49000,cur:'CRC'},telefono:{amt:12287.38,cur:'CRC'},suscr:{amt:15000,cur:'CRC'},
-      comisiones:{amt:0,cur:'USD'},gasolina:{amt:38000,cur:'CRC'},super:{amt:42000,cur:'CRC'},salud:{amt:18000,cur:'CRC'},medicos:{amt:0,cur:'CRC'},
+      comisiones:{amt:0,cur:'USD'},gasolina:{amt:38000,cur:'CRC'},super:{amt:42000,cur:'CRC'},salud:{amt:18000,cur:'CRC'},medicos:{amt:340000,cur:'CRC'},
       comida:{amt:80000,cur:'CRC'},salidas:{amt:80000,cur:'CRC'},online:{amt:90000,cur:'CRC'},ropa:{amt:0,cur:'CRC'},
       viajes:{amt:0,cur:'CRC'},imprev:{amt:137000,cur:'CRC'},otros:{amt:0,cur:'CRC'}
     },over:{}},
@@ -779,6 +779,12 @@ function load(){
         var vu22=out.recurring.find(function(r){return r.id==='r_viu';}); if(vu22&&vu22.split==null){vu22.split=true;vu22.auto=false;} // Viu se comparte 50/50 con un primo y se paga a mano
         out.v=22;
       }
+      if((out.v||1)<23){
+        /* consultas médicas: presupuesto por año (ojos, 2 limpiezas, chequeo), no por mes */
+        var md23=out.cats.find(function(c){return c.id==='medicos';});
+        if(md23&&md23.yearly==null){md23.yearly=true;var b23=out.budgets.base.medicos;if(!b23||!(b23.amt>0))out.budgets.base.medicos={amt:340000,cur:'CRC'};}
+        out.v=23;
+      }
       if(!Array.isArray(out.fuel)) out.fuel=[];
       if(!Array.isArray(out.incomes)) out.incomes=[];
       if(!Array.isArray(out.redeems)) out.redeems=[];
@@ -866,7 +872,10 @@ function convAmt(a,from){var d=disp();if(from===d)return a;return d==='CRC'?a*ra
 function crcToDisp(crc,r){return disp()==='CRC'?crc:crc/(r||rate());}
 
 /* ================= presupuesto y metas ================= */
-function budgetEntry(m,cid){var o=S.budgets.over[m];if(o&&o[cid])return o[cid];return S.budgets.base[cid]||{amt:0,cur:'CRC'};}
+function budgetEntry(m,cid){var o=S.budgets.over[m],c=catById(cid);if(o&&o[cid]&&!(c&&c.yearly))return o[cid];return S.budgets.base[cid]||{amt:0,cur:'CRC'};}
+/* categorías de vez en cuando (consultas): el presupuesto es por año y no entra en el mes */
+function isYearly(cid){var c=catById(cid);return !!(c&&c.yearly);}
+function yearSpent(cid,m){var y=m.slice(0,4);return S.expenses.filter(function(e){var k=mOf(e);return e.cat===cid&&!e.goal&&k.slice(0,4)===y&&k<=m;}).reduce(function(a,e){return a+netOf(e);},0);}
 function budgetDisp(m,cid){var b=budgetEntry(m,cid);return convAmt(b.amt,b.cur);}
 function goalActive(g,m){return (!g.from||m>=g.from)&&(!g.to||m<=g.to);}
 function goalPlan(g,m){return goalActive(g,m)?g.monthly:0;}
@@ -1021,15 +1030,16 @@ function monthStats(m){
   var exb=ex.filter(function(e){return !e.goal;});
   var by={}; S.cats.forEach(function(c){by[c.id]={spent:0,budget:budgetDisp(m,c.id),n:0};});
   exb.forEach(function(e){by[e.cat]=by[e.cat]||{spent:0,budget:0,n:0};by[e.cat].spent+=netOf(e);by[e.cat].n++;});
-  var spent=0,budget=0,fix=0,fixB=0;
+  var spent=0,budget=0,fix=0,fixB=0,occ=0,occB=0;
   Object.keys(by).forEach(function(id){
+    if(isYearly(id)){occ+=by[id].spent;occB+=by[id].budget/12;by[id].yb=by[id].budget;by[id].budget=0;by[id].yearly=true;return;}
     spent+=by[id].spent;budget+=by[id].budget;
     var c=catById(id); if(c&&c.kind==='fijo'){fix+=by[id].spent;fixB+=by[id].budget;}
   });
   var goalSpent=ex.filter(function(e){return e.goal;}).reduce(function(a,e){return a+vOf(e);},0);
   /* gastos que esperan reembolso del seguro: cuentan completos hasta que llega la plata */
-  var ins=exb.filter(function(e){var c=catById(e.cat);return e.reimb&&!reimbGot(e)&&!(c&&c.kind==='fijo');}).reduce(function(a,e){return a+netOf(e);},0);
-  return {ex:ex,exb:exb,by:by,spent:spent,budget:budget,fix:fix,fixB:fixB,varSpent:spent-fix,goalSpent:goalSpent,ins:ins};
+  var ins=exb.filter(function(e){var c=catById(e.cat);return e.reimb&&!reimbGot(e)&&!(c&&(c.kind==='fijo'||c.yearly));}).reduce(function(a,e){return a+netOf(e);},0);
+  return {ex:ex,exb:exb,by:by,spent:spent,budget:budget,fix:fix,fixB:fixB,varSpent:spent-fix,goalSpent:goalSpent,ins:ins,occ:occ,occB:occB};
 }
 function monthRewards(ex){
   var rw=rewards(), tot=0;
@@ -1472,7 +1482,7 @@ function banners(m){
 function roundStep(v,cur){var st=cur==='USD'?10:5000;return Math.max(st,Math.ceil(v/st)*st);}
 function suggestions(m){
   var nm=addMonths(m,1), st=monthStats(m), out=[];
-  S.cats.filter(function(c){return c.kind==='variable';}).forEach(function(c){
+  S.cats.filter(function(c){return c.kind==='variable'&&!c.yearly;}).forEach(function(c){
     var spentCRC=st.exb.filter(function(e){return e.cat===c.id;}).reduce(function(a,e){return a+crcOf(e);},0);
     var b=budgetEntry(nm,c.id), bCRC=b.cur==='USD'?b.amt*rate():b.amt;
     if(spentCRC<=0) return;
@@ -1519,8 +1529,8 @@ function viewYear(){
     var k=y+'-'+pad(i), st=monthStats(k), active=last&&k<=last&&k>=start;
     var sv=S.contribs.filter(function(c){return c.date.slice(0,7)===k;}).reduce(function(a,c){return a+c.amt;},0);
     var rw=monthRewards(st.ex);
-    rows.push({k:k,s:st.spent,b:active?st.budget:0,sv:crcToDisp(sv),rw:rw,active:active||st.ex.length>0});
-    tot.s+=st.spent; if(active) tot.b+=st.budget; tot.sv+=crcToDisp(sv); tot.rw+=rw; tot.g+=st.goalSpent;
+    rows.push({k:k,s:st.spent+st.occ,b:active?st.budget+st.occB:0,sv:crcToDisp(sv),rw:rw,active:active||st.ex.length>0});
+    tot.s+=st.spent+st.occ; if(active) tot.b+=st.budget+st.occB; tot.sv+=crcToDisp(sv); tot.rw+=rw; tot.g+=st.goalSpent;
     st.exb.forEach(function(e){catT[e.cat]=(catT[e.cat]||0)+vOf(e);});
   }
   var d=tot.b-tot.s;
@@ -1553,22 +1563,23 @@ function viewHome(){
     +'<div class="sub">You spent '+money(vS)+' of '+money(vB)+'.'+(perDay?' You can spend <b>'+money(perDay)+' a day</b> until month end.':(m<cur?' Month closed.':''))+'</div>'
     +barHTML(vB>0?vS/vB*100:0,el)
     +(st.ins>0?'<div class="sub" style="margin-top:8px">Includes '+money(st.ins)+' waiting on insurance.</div>':'')
-    +'<div class="hstats"><div><small>Total spent</small><b class="num">'+money(st.spent)+'</b></div><div><small>Bills paid</small><b class="num">'+paid+' of '+fx.length+'</b></div><div><small>Rewards</small><b class="num">'+money(rw)+'</b></div></div></div>';
+    +'<div class="hstats"><div><small>Total spent</small><b class="num">'+money(st.spent+st.occ)+'</b></div><div><small>Bills paid</small><b class="num">'+paid+' of '+fx.length+'</b></div><div><small>Rewards</small><b class="num">'+money(rw)+'</b></div></div></div>';
 
   h+=banners(m);
   if(m<cur) h+=closeSection(m);
   var ins=buildInsights(m,st).slice(0,3);
   h+='<section class="sec"><h2 style="margin-bottom:10px">What your numbers say</h2>'+ins.map(function(i){return '<div class="ins '+(i.tone||'')+'"><div><b>'+esc(i.t)+'</b><span>'+esc(i.x)+'</span></div></div>';}).join('')+'</section>';
 
-  var rows=varCats.map(function(c){var o=st.by[c.id]||{spent:0,budget:0};return {c:c,spent:o.spent,budget:o.budget};})
-    .filter(function(o){return o.budget>0||o.spent>0;})
-    .sort(function(a,b){var pa=a.budget>0?a.spent/a.budget:(a.spent>0?9:0),pb=b.budget>0?b.spent/b.budget:(b.spent>0?9:0);return pb-pa;});
+  var rows=varCats.map(function(c){if(c.yearly)return {c:c,spent:yearSpent(c.id,m),budget:budgetDisp(m,c.id),yearly:true};var o=st.by[c.id]||{spent:0,budget:0};return {c:c,spent:o.spent,budget:o.budget};})
+    .filter(function(o){return o.yearly?o.spent>0:(o.budget>0||o.spent>0);})
+    .sort(function(a,b){var pa=a.budget>0?a.spent/a.budget:0,pb=b.budget>0?b.spent/b.budget:0;return pb-pa;});
   h+='<section class="sec" style="background:var(--bg)"><h2>Variable spending</h2><p class="hint">Tap a category to see its transactions.</p><div class="tiles">'
     +(rows.length?rows.map(function(o){
-      var p=o.budget>0?o.spent/o.budget*100:(o.spent>0?100:0);
-      var stt=p>100?'bad':((el>=0.15&&el<1&&p>el*100+15)?'warn':'ok');
-      var line=o.budget<=0?'No budget':(p>100?money(o.spent-o.budget)+' over':'Left: '+money(o.budget-o.spent));
-      return '<button class="tile" data-act="cat-go" data-id="'+o.c.id+'"><span class="tt"><span class="tn">'+catIco(o.c)+'<span>'+esc(o.c.name)+'</span></span>'+ring(p,stt)+'</span><span class="ta num"><b>'+money(o.spent)+'</b> of '+short(o.budget)+'</span><span class="ts num '+(stt==='bad'?'badc':(stt==='warn'?'warnc':'ok'))+'">'+line+(stt==='warn'?', spending fast':'')+'</span></button>';
+      if(o.budget<=0) return '<button class="tile" data-act="cat-go" data-id="'+o.c.id+'"><span class="tt"><span class="tn">'+catIco(o.c)+'<span>'+esc(o.c.name)+'</span></span></span><span class="ta num"><b>'+money(o.spent)+'</b> spent</span><span class="ts" style="color:var(--mute)">No budget'+(o.yearly?' · this year':'')+'</span></button>';
+      var p=o.spent/o.budget*100;
+      var stt=p>100?'bad':((!o.yearly&&el>=0.15&&el<1&&p>el*100+15)?'warn':'ok');
+      var line=p>100?money(o.spent-o.budget)+' over'+(o.yearly?' this year':''):(o.yearly?'Left this year: ':'Left: ')+money(o.budget-o.spent);
+      return '<button class="tile" data-act="cat-go" data-id="'+o.c.id+'"><span class="tt"><span class="tn">'+catIco(o.c)+'<span>'+esc(o.c.name)+'</span></span>'+ring(p,stt)+'</span><span class="ta num"><b>'+money(o.spent)+'</b> of '+short(o.budget)+(o.yearly?'/yr':'')+'</span><span class="ts num '+(stt==='bad'?'badc':(stt==='warn'?'warnc':'ok'))+'">'+line+(stt==='warn'?', spending fast':'')+'</span></button>';
     }).join(''):'<div class="empty">Set budgets in the Budget tab.</div>')+'</div></section>';
 
   if(fx.length){
@@ -1586,10 +1597,10 @@ function viewHome(){
   }
   var mi=monthIncome(m);
   if(mi.total>0){
-    var kept=crcToDisp(mi.total)-st.spent, pr=Math.round(kept/crcToDisp(mi.total)*100);
+    var kept=crcToDisp(mi.total)-st.spent-st.occ, pr=Math.round(kept/crcToDisp(mi.total)*100);
     h+='<section class="sec"><div class="shead"><h2 style="margin:0">Income and savings rate</h2><span>'+(m===cur?'so far':'')+'</span></div>'
       +'<div class="kv"><span>Income</span><b class="num">'+money(crcToDisp(mi.total))+(mi.extra?' <small style="color:var(--mute);font-weight:500">incl. '+money(crcToDisp(mi.extra))+' extra</small>':'')+'</b></div>'
-      +'<div class="kv"><span>Spent</span><b class="num">'+money(st.spent)+'</b></div>'
+      +'<div class="kv"><span>Spent</span><b class="num">'+money(st.spent+st.occ)+'</b></div>'
       +'<div class="kv t"><span>Kept</span><b class="num '+(kept<0?'badc':'ok')+'">'+money(kept)+' · '+pr+'%</b></div></section>';
   }
   var owed=S.expenses.filter(function(e){return owedOf(e)>0.5;});
@@ -1660,21 +1671,25 @@ function viewMeta(){
   var h='<section class="sec"><h2>Budget</h2><p class="hint">How much you want to spend per category. Changes apply to every month or only to '+monthLabel(m)+'.</p>'
     +'<div class="seg"><button data-act="scope" data-v="base" class="'+(scope==='base'?'on':'')+'">Every month</button><button data-act="scope" data-v="month" class="'+(scope==='month'?'on':'')+'">This month only</button></div></section>';
   function brow(c){
-    var b=budgetEntry(m,c.id), isO=!!ov[c.id];
-    return '<div class="brow" data-cid="'+c.id+'"><div class="nm ln">'+catIco(c,'sm')+'<span>'+esc(c.name)+(isO?'<span class="badge">this month</span>':'')+'</span></div><input class="bamt num" type="number" inputmode="decimal" step="any" min="0" value="'+b.amt+'">'+curSel('c_'+c.id,b.cur)+'</div>';
+    var b=budgetEntry(m,c.id), isO=!!ov[c.id]&&!c.yearly;
+    return '<div class="brow" data-cid="'+c.id+'"><div class="nm ln">'+catIco(c,'sm')+'<span>'+esc(c.name)+(isO?'<span class="badge">this month</span>':'')+(c.yearly?'<button class="link" style="display:block;font-size:12px;padding:0" data-act="cat-yearly" data-id="'+c.id+'" data-v="0">Make monthly</button>':'')+'</span></div><input class="bamt num" type="number" inputmode="decimal" step="any" min="0" value="'+b.amt+'">'+curSel('c_'+c.id,b.cur)+'</div>';
   }
   h+='<section class="sec"><h2>Bills</h2>'+S.cats.filter(function(c){return c.kind==='fijo';}).map(brow).join('')+'</section>';
-  h+='<section class="sec"><h2>Variable</h2>'+S.cats.filter(function(c){return c.kind==='variable';}).map(brow).join('')
+  var yc=S.cats.filter(function(c){return c.kind==='variable'&&c.yearly;});
+  h+='<section class="sec"><h2>Variable</h2>'+S.cats.filter(function(c){return c.kind==='variable'&&!c.yearly;}).map(brow).join('')
     +'<button class="btn ghost" data-act="add-cat">Add category</button>'
     +(Object.keys(ov).length?'<button class="btn ghost" data-act="clear-over">Remove this month adjustments</button>':'')+'</section>';
+  h+='<section class="sec"><h2>Once in a while</h2><p class="hint">Yearly budget for things you pay a few times a year. They do not count in the monthly budget.</p>'+yc.map(brow).join('')
+    +'<label class="l">Budget a category per year</label><select id="yr_add"><option value="">Choose a category</option>'+S.cats.filter(function(c){return c.kind==='variable'&&!c.yearly;}).map(function(c){return '<option value="'+c.id+'">'+esc(c.name)+'</option>';}).join('')+'</select></section>';
   h+='<section class="sec"><h2>Month summary</h2>'
     +'<div class="kv"><span>Budgeted spending</span><b class="num">'+money(st.budget)+'</b></div>'
+    +(st.occB>0?'<div class="kv"><span>Set aside for yearly (1/12)</span><b class="num">'+money(st.occB)+'</b></div>':'')
     +'<div class="kv"><span>Planned savings</span><b class="num">'+money(crcToDisp(plan))+'</b></div>'
-    +'<div class="kv t"><span>Total allocated</span><b class="num">'+money(st.budget+crcToDisp(plan))+'</b></div>'
+    +'<div class="kv t"><span>Total allocated</span><b class="num">'+money(st.budget+st.occB+crcToDisp(plan))+'</b></div>'
     +(function(){var mi=monthIncome(m), ex=(S.incomes||[]).filter(function(x){return x.date.slice(0,7)===m;});
       return (mi.base?'<div class="kv"><span>Regular income</span><span class="num">'+money(crcToDisp(mi.base))+'</span></div>':'')
         +ex.map(function(x){return '<button class="kv link" style="width:100%;color:inherit" data-act="edit-income" data-id="'+x.id+'"><span>'+esc(x.note||'Extra income')+' · '+shortDate(x.date)+'</span><span class="num ok">+'+money(crcToDisp(x.cur==='USD'?x.amt*(x.rate||rate()):x.amt))+'</span></button>';}).join('')
-        +(mi.total?'<div class="kv"><span>Unallocated</span><b class="num '+(mi.total-(st.budget*(disp()==='CRC'?1:rate()))-plan<0?'badc':'ok')+'">'+money(crcToDisp(mi.total)-st.budget-crcToDisp(plan))+'</b></div>':'<p class="hint" style="margin:8px 0 0">Add your income in Settings to see how much is left unallocated.</p>')
+        +(mi.total?'<div class="kv"><span>Unallocated</span><b class="num '+(mi.total-((st.budget+st.occB)*(disp()==='CRC'?1:rate()))-plan<0?'badc':'ok')+'">'+money(crcToDisp(mi.total)-st.budget-st.occB-crcToDisp(plan))+'</b></div>':'<p class="hint" style="margin:8px 0 0">Add your income in Settings to see how much is left unallocated.</p>')
         +'<button class="btn ghost" data-act="add-income">Add income</button>';})()
     +'</section>';
   h+='<section class="sec"><h2>Recurring bills</h2><p class="hint">They show up as pending when they are due. Auto-pay ones log themselves.</p>'
@@ -2290,9 +2305,15 @@ function setPath(path,val){
   if(path==='chart.period'&&val!=='month'&&U().chart.group==='day') U().chart.group='week';
   fixChart(); save(); render();
 }
+function setYearly(cid,on){
+  var c=catById(cid); if(!c) return;
+  if(on){c.yearly=true;toast(c.name+': yearly budget. Enter the amount for the whole year.');}
+  else{delete c.yearly;toast(c.name+': monthly budget again. Check the amount.');}
+  save(); render();
+}
 function setBudget(cid,amt,cur){
   var m=U().month, o={amt:Math.max(0,amt||0),cur:cur};
-  if(U().scope==='month'){S.budgets.over[m]=S.budgets.over[m]||{};S.budgets.over[m][cid]=o;}
+  if(U().scope==='month'&&!isYearly(cid)){S.budgets.over[m]=S.budgets.over[m]||{};S.budgets.over[m][cid]=o;}
   else S.budgets.base[cid]=o;
   save();render();
 }
@@ -2389,6 +2410,7 @@ function act(name,el){
     case 'scope': U().scope=d.v; save(); render(); break;
     case 'clear-over': delete S.budgets.over[U().month]; save(); render(); toast('Month adjustments removed'); break;
     case 'add-cat': catSheet(); break;
+    case 'cat-yearly': setYearly(d.id,d.v==='1'); break;
     case 'save-cat':
       var nm=$('#n_name').value.trim(); if(!nm){toast('Enter a name');break;}
       var cid='c_'+uid(); S.cats.push({id:cid,name:nm,emoji:$('#n_emoji').value||'🏷️',group:$('#n_group').value,kind:$('#n_kind').value});
@@ -2494,6 +2516,7 @@ document.addEventListener('change',function(e){
     setPath(t.dataset.set,v);
     return;
   }
+  if(t.id==='yr_add'){if(t.value)setYearly(t.value,true);return;}
   var row=t.closest&&t.closest('.brow[data-cid]');
   if(row){setBudget(row.dataset.cid,num($('.bamt',row).value),$('.bcur',row).value);return;}
   if(t.id==='s_income'){S.settings.income=t.value===''?null:num(t.value);save();toast('Saved');return;}

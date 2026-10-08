@@ -41,7 +41,7 @@ function registrarGasto(t, g) {
 test('arranca sin datos y sin errores', function () {
   var t = cargarApp();
   assert.deepEqual(t.errores, []);
-  assert.equal(t.app.S.v, 22);
+  assert.equal(t.app.S.v, 23);
   assert.ok(t.$('#vin').innerHTML.length > 0, 'La pantalla de inicio quedó vacía');
   sinProblemas(t, 'Inicio');
   t.cerrar();
@@ -357,7 +357,7 @@ test('carro: Year deja ver años anteriores (2025)', function () {
 test('seguro: un solo pago cubre varios gastos y se reparte', function () {
   var t = cargarApp(), S = t.app.S;
   var hoy = new Date(), d = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-01';
-  [['i1', 'medicos', 40000], ['i2', 'medicos', 50000], ['i3', 'salud', 10000]].forEach(function (x) {
+  [['i1', 'salud', 40000], ['i2', 'salud', 50000], ['i3', 'salud', 10000]].forEach(function (x) {
     S.expenses.push({ id: x[0], ts: 1, date: d, amt: x[2], cur: 'CRC', rate: 500, cat: x[1], card: 'debcrc', merchant: 'Prueba ' + x[0], note: '', intl: false, reimb: { exp: null, got: null } });
   });
   S.ui.tab = 'home'; S.ui.month = d.slice(0, 7); t.app.render();
@@ -375,6 +375,31 @@ test('seguro: un solo pago cubre varios gastos y se reparte', function () {
   assert.equal(desp.ins, 0);
   assert.equal(Math.round(antes.spent - desp.spent), 80000, 'Solo cuenta lo que no devolvieron');
   assert.ok(!t.$('[data-act="ins-pay"]'), 'Ya no quedan pendientes');
+  var pr = problemas(t.doc.body); assert.deepEqual(pr, []);
+  assert.deepEqual(t.errores, []);
+  t.cerrar();
+});
+
+test('consultas con presupuesto anual: no cuentan en el mes y se ven contra el año', function () {
+  var t = cargarApp(), S = t.app.S;
+  var hoy = new Date(), m = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+  var antes = t.app.monthStats(m);
+  S.expenses.push({ id: 'y1', ts: 1, date: m + '-01', amt: 200000, cur: 'CRC', rate: 500, cat: 'medicos', card: 'debcrc', merchant: 'Óptica', note: '', intl: false });
+  S.expenses.push({ id: 'y2', ts: 1, date: m + '-02', amt: 5000, cur: 'CRC', rate: 500, cat: 'ropa', card: 'debcrc', merchant: 'Tienda', note: '', intl: false });
+  S.ui.tab = 'home'; S.ui.month = m; S.settings.disp = 'CRC'; t.app.render();
+  var st = t.app.monthStats(m);
+  assert.equal(st.spent - antes.spent, 5000, 'La consulta no entra en el presupuesto del mes');
+  assert.equal(st.occ, 200000);
+  var txt = t.$('#vin').textContent;
+  assert.ok(txt.indexOf('340K/yr') >= 0 && txt.indexOf('Left this year') >= 0, 'El mosaico muestra el año');
+  assert.ok(txt.indexOf('No budget') >= 0, 'Ropa sin presupuesto se ve neutral');
+  // en Budget: sección anual y se puede volver a mensual
+  S.ui.tab = 'meta'; t.app.render();
+  assert.ok(t.$('#vin').textContent.indexOf('Once in a while') >= 0);
+  t.click('[data-act="cat-yearly"][data-id="medicos"]');
+  assert.ok(!S.cats.find(function (c) { return c.id === 'medicos'; }).yearly);
+  t.escribir('#yr_add', 'ropa');
+  assert.ok(S.cats.find(function (c) { return c.id === 'ropa'; }).yearly);
   var pr = problemas(t.doc.body); assert.deepEqual(pr, []);
   assert.deepEqual(t.errores, []);
   t.cerrar();
@@ -534,7 +559,7 @@ test('respaldo: importar uno viejo lo actualiza y se puede deshacer', async func
   viejo.expenses = [{ id: 'resp1', ts: 2, date: S.ui.month + '-03', amt: 7000, cur: 'CRC', rate: 500, cat: 'comida', card: 'bct', merchant: 'Starbucks', note: '', intl: false }];
   await importar(t, viejo);
   S = t.app.S;
-  assert.equal(S.v, 22, 'El respaldo viejo pasa por la actualización');
+  assert.equal(S.v, 23, 'El respaldo viejo pasa por la actualización');
   assert.deepEqual(ids(S), ['resp1']);
   assert.ok(S.merchants.length > 0 && S.cats.some(function (c) { return c.id === 'medicos'; }));
   t.click('[data-act="tab"][data-v="set"]');
