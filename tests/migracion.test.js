@@ -83,19 +83,20 @@ function datosViejos(v) {
     delete d.incomes;
   }
   if (v < 21) { delete d.fuel; delete d.car; }
+  if (v < 24) { d.cats = d.cats.filter(function (c) { return c.id !== 'regalos'; }); delete d.budgets.base.regalos; }
   if (v < 23) { d.cats.forEach(function (c) { if (c.id === 'medicos') delete c.yearly; }); if (d.budgets.base.medicos) d.budgets.base.medicos = { amt: 0, cur: 'CRC' }; }
   if (v < 22) d.recurring.forEach(function (r) { if (r.id === 'r_viu') { delete r.split; r.auto = true; } });
   if (v < 2) delete d.redeems;
   return d;
 }
 
-for (var v = 1; v <= 23; v++) (function (v) {
+for (var v = 1; v <= 24; v++) (function (v) {
   test('datos de la versión ' + v + ' se conservan al abrir la app', function () {
     var viejo = datosViejos(v);
     var t = cargarApp(viejo);
     var S = clone(t.app.S); // copia: los objetos de jsdom vienen de otra ventana
     assert.deepEqual(t.errores, []);
-    assert.equal(S.v, 23, 'La versión debe quedar en 23');
+    assert.equal(S.v, 24, 'La versión debe quedar en 24');
 
     // lo del usuario sigue igual
     assert.equal(S.settings.disp, 'USD');
@@ -178,9 +179,12 @@ for (var v = 1; v <= 23; v++) (function (v) {
     var md = S.cats.find(function (c) { return c.id === 'medicos'; });
     assert.equal(md.yearly, true, 'Consultas: presupuesto por año');
     assert.equal(S.budgets.base.medicos.amt, 340000);
+    var rg = S.cats.filter(function (c) { return c.id === 'regalos'; });
+    assert.equal(rg.length, 1, 'Regalos aparece una sola vez'); assert.equal(rg[0].yearly, true);
+    assert.deepEqual(clone(S.budgets.base.regalos), { amt: 750, cur: 'USD' });
     assert.equal(S.recurring.find(function (r) { return r.id === 'r_viu'; }).split, true, 'Viu queda compartido 50/50');
     assert.ok(!S.recurring.find(function (r) { return r.id === 'r_viu'; }).auto, 'Viu se paga a mano');
-    if (v === 23) assert.deepEqual(S.expenses, viejo.expenses, 'Con la versión actual no se toca nada');
+    if (v === 24) assert.deepEqual(S.expenses, viejo.expenses, 'Con la versión actual no se toca nada');
 
     // la app se ve bien con los datos migrados
     ['home', 'exp', 'cards', 'meta', 'save', 'set'].forEach(function (p) {
@@ -193,7 +197,7 @@ for (var v = 1; v <= 23; v++) (function (v) {
     t.app.render();
     t.click('[data-act="tab"][data-v="home"]');
     var g = t.guardado();
-    assert.equal(g.v, 23);
+    assert.equal(g.v, 24);
     assert.equal(g.expenses.length, 6);
     t.cerrar();
 
