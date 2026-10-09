@@ -41,7 +41,7 @@ function registrarGasto(t, g) {
 test('arranca sin datos y sin errores', function () {
   var t = cargarApp();
   assert.deepEqual(t.errores, []);
-  assert.equal(t.app.S.v, 24);
+  assert.equal(t.app.S.v, 25);
   assert.ok(t.$('#vin').innerHTML.length > 0, 'La pantalla de inicio quedó vacía');
   sinProblemas(t, 'Inicio');
   t.cerrar();
@@ -405,6 +405,65 @@ test('consultas con presupuesto anual: no cuentan en el mes y se ven contra el a
   t.cerrar();
 });
 
+test('estados de cuenta: periodo, fecha de pago, dólares aparte y canjes para pagar', function () {
+  var t = cargarApp(), S = t.app.S;
+  var g = function (id, date, amt, cur, card) { S.expenses.push({ id: id, ts: 1, date: date, amt: amt, cur: cur || 'CRC', rate: 500, cat: 'super', card: card || 'amexblue', merchant: 'X', note: '', intl: false }); };
+  g('a0', '2026-08-27', 1000); g('a1', '2026-08-28', 20000); g('a2', '2026-09-27', 30000); g('a3', '2026-09-28', 7000); g('a4', '2026-09-10', 40, 'USD');
+  S.redeems.push({ id: 'r1', card: 'amexblue', date: '2026-10-03', amt: 5000, note: '', stmt: true });
+  var amex = S.cards.find(function (c) { return c.id === 'amexblue'; });
+  var st = t.app.stmtFor(amex, '2026-09-27');
+  assert.equal(st.from, '2026-08-28'); assert.equal(st.due, '2026-10-12');
+  assert.equal(st.crc, 50000); assert.equal(st.usd, 40); assert.equal(st.cred, 5000); assert.equal(st.payCrc, 45000);
+  var bct = S.cards.find(function (c) { return c.id === 'bct'; });
+  assert.equal(t.app.stmtFor(bct, '2026-10-05').due, '2026-10-20', 'BCT: corte 5, paga 20 del mismo mes');
+  var pre = S.cards.find(function (c) { return c.id === 'premia'; });
+  var sp = t.app.stmtFor(pre, '2026-09-18'); assert.equal(sp.from, '2026-08-19'); assert.equal(sp.due, '2026-10-05');
+  S.ui.tab = 'cards'; t.app.render();
+  assert.ok(t.$('#vin').textContent.indexOf('Next bill') >= 0);
+  var b = t.$('[data-act="stmt-paid"]'); if (b) { var k = b.getAttribute('data-v'); t.click(b); assert.ok(S.settings.stmtPaid[k]); }
+  S.ui.tab = 'home'; t.app.render(); var sb = t.$('[data-act="stmt-sheet"]'); if (sb) { t.click(sb); assert.ok(t.$('#sheet').textContent.indexOf('Cards to pay') >= 0); t.click('#sheet [data-act="cancel"]'); }
+  assert.deepEqual(problemas(t.doc.body), []); assert.deepEqual(t.errores, []);
+  t.cerrar();
+});
+
+test('recompensas perdidas: compara con la mejor tarjeta y deja fuera SINPE, PayPal y fijos por débito', function () {
+  var t = cargarApp(), S = t.app.S;
+  var e1 = { id: 'm1', ts: 1, date: '2026-10-02', amt: 100000, cur: 'CRC', rate: 500, cat: 'super', card: 'amexblue', merchant: 'Automercado', note: '', intl: false };
+  var e2 = Object.assign({}, e1, { id: 'm2', card: 'sinpe' });
+  var e3 = Object.assign({}, e1, { id: 'm3', card: 'debcrc', recurId: 'r_tel', cat: 'telefono' });
+  var e4 = Object.assign({}, e1, { id: 'm4', card: 'amexeco' });
+  S.expenses.push(e1, e2, e3, e4);
+  var m1 = t.app.missedOf(e1);
+  assert.ok(m1 && m1.best.card.id === 'amexeco', 'En súper la mejor es EconoMía');
+  assert.equal(Math.round(m1.miss), 3000, '4% menos 1% de 100,000');
+  assert.equal(t.app.missedOf(e2), null); assert.equal(t.app.missedOf(e3), null); assert.equal(t.app.missedOf(e4), null);
+  S.ui.tab = 'cards'; S.ui.month = '2026-10'; t.app.render();
+  assert.ok(t.$('#vin').textContent.indexOf('Rewards you missed') >= 0);
+  assert.deepEqual(problemas(t.doc.body), []); assert.deepEqual(t.errores, []);
+  t.cerrar();
+});
+
+test('resumen del mes y del año se abren sin valores rotos', function () {
+  var t = cargarApp(), S = t.app.S;
+  [['q1', '2026-08-03', 'super', 30000], ['q2', '2026-09-05', 'super', 45000], ['q3', '2026-09-08', 'comida', 12000], ['q4', '2026-09-20', 'medicos', 60000]].forEach(function (x) {
+    S.expenses.push({ id: x[0], ts: 1, date: x[1], amt: x[3], cur: 'CRC', rate: 500, cat: x[2], card: 'amexblue', merchant: 'Tienda ' + x[0], note: '', intl: false });
+  });
+  S.ui.tab = 'home'; S.ui.month = '2026-09'; t.app.render();
+  t.click('[data-act="recap"][data-v="2026-09"]');
+  var txt = t.$('#vin').textContent;
+  assert.equal(S.ui.tab, 'recap');
+  assert.ok(txt.indexOf('September 2026') >= 0 && txt.indexOf('Biggest expenses') >= 0 && txt.indexOf('Compared with August') >= 0);
+  assert.deepEqual(problemas(t.doc.body), []);
+  t.app.act && 0;
+  S.ui.recapY = '2026'; t.app.render();
+  txt = t.$('#vin').textContent;
+  assert.ok(txt.indexOf('Your 2026 in review') >= 0 && txt.indexOf('Where it went') >= 0);
+  assert.deepEqual(problemas(t.doc.body), []);
+  t.click('[data-act="tab"][data-v="home"]'); assert.equal(S.ui.tab, 'home');
+  assert.deepEqual(t.errores, []);
+  t.cerrar();
+});
+
 test('fijos cada 3 meses y anuales aparecen solo cuando tocan', function () {
   var t = cargarApp(), S = t.app.S;
   var nombres = function (m) { S.ui.month = m; S.ui.tab = 'exp'; t.app.render(); return t.$('#vin').textContent; };
@@ -526,15 +585,16 @@ test('la Gane Premios queda de última opción', function () {
   t.cerrar();
 });
 
-test('respaldo: aviso semanal', function () {
+test('respaldo: en Home solo después de un mes; saldos iniciales ya no salen en Home', function () {
   var t = cargarApp(), S = t.app.S, dia = 864e5;
   S.expenses.push({ id: 'b1', ts: Date.now() - 3 * dia, date: S.ui.month + '-01', amt: 1000, cur: 'CRC', rate: S.fx.rate, cat: 'otros', card: 'debcrc', merchant: '', note: '', intl: false });
   t.click('[data-act="tab"][data-v="home"]');
-  assert.ok(/You have not backed up/.test(t.$('#vin').textContent), 'Sin respaldo debe avisar');
-  S.settings.lastBackup = Date.now() - 2 * dia; t.app.render();
-  assert.ok(!t.$('#vin [data-act="export"]'), 'Con respaldo reciente no avisa');
-  S.settings.lastBackup = Date.now() - 8 * dia; t.app.render();
-  assert.ok(/last backup was 8 days ago/.test(t.$('#vin').textContent), 'A la semana vuelve a avisar');
+  assert.ok(!t.$('#vin [data-act="export"]'), 'A los pocos días no avisa en Home');
+  assert.ok(!t.$('#vin [data-act="bal-sheet"]'), 'Saldos iniciales no salen en Home');
+  S.settings.lastBackup = Date.now() - 31 * dia; t.app.render();
+  assert.ok(/Last one 31 days ago/.test(t.$('#vin').textContent), 'Después de un mes vuelve a avisar');
+  S.ui.tab = 'set'; S.settings.lastBackup = Date.now() - 5 * dia; t.app.render();
+  assert.ok(/5 days ago/.test(t.$('#vin').textContent), 'Ajustes dice hace cuánto fue');
   t.cerrar();
 });
 
@@ -559,7 +619,7 @@ test('respaldo: importar uno viejo lo actualiza y se puede deshacer', async func
   viejo.expenses = [{ id: 'resp1', ts: 2, date: S.ui.month + '-03', amt: 7000, cur: 'CRC', rate: 500, cat: 'comida', card: 'bct', merchant: 'Starbucks', note: '', intl: false }];
   await importar(t, viejo);
   S = t.app.S;
-  assert.equal(S.v, 24, 'El respaldo viejo pasa por la actualización');
+  assert.equal(S.v, 25, 'El respaldo viejo pasa por la actualización');
   assert.deepEqual(ids(S), ['resp1']);
   assert.ok(S.merchants.length > 0 && S.cats.some(function (c) { return c.id === 'medicos'; }));
   t.click('[data-act="tab"][data-v="set"]');

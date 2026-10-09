@@ -53,6 +53,7 @@ for (var i = 0; i < PESTANAS.length; i++) (function (p) {
 for (var j = 0; j < HOJAS.length; j++) (function (h) {
   test(h[2], async function ({ page }) {
     await page.click('[data-act="tab"][data-v="' + h[0] + '"]');
+    if (h[0] === 'cards') await page.locator('details.cfold summary').first().click(); // las tarjetas vienen plegadas
     var b = page.locator(h[1]).first();
     test.skip(await b.count() === 0, 'No está el botón ' + h[1]);
     await b.click();
