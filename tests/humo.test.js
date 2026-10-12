@@ -464,6 +464,16 @@ test('resumen del mes y del año se abren sin valores rotos', function () {
   t.cerrar();
 });
 
+test('gasolina: BCT por defecto aunque el historial diga otra tarjeta', function () {
+  var t = cargarApp(), S = t.app.S, hoy = new Date().toISOString().slice(0, 10);
+  for (var i = 0; i < 4; i++) S.expenses.push({ id: 'gz' + i, ts: Date.now(), date: hoy, amt: 30000, cur: 'CRC', rate: 500, cat: 'gasolina', card: 'premia', merchant: 'Delta', note: '', intl: false });
+  t.app.render();
+  t.click('#fab'); t.escribir('#f_cat', 'gasolina');
+  assert.equal(t.$('#f_card').value, 'bct');
+  assert.deepEqual(t.errores, []);
+  t.cerrar();
+});
+
 test('fijos cada 3 meses y anuales aparecen solo cuando tocan', function () {
   var t = cargarApp(), S = t.app.S;
   var nombres = function (m) { S.ui.month = m; S.ui.tab = 'exp'; t.app.render(); return t.$('#vin').textContent; };
@@ -567,8 +577,8 @@ test('tarjeta por defecto según la categoría', function () {
   t.click('#sheet [data-act="cancel"]');
   // con historial, gana la tarjeta que más usás en esa categoría
   var S = t.app.S, d = S.ui.month + '-02';
-  [1, 2, 3].forEach(function (i) { S.expenses.push({ id: 'h' + i, ts: i, date: d, amt: 1000, cur: 'CRC', rate: 500, cat: 'gasolina', card: 'premia', merchant: '', note: '', intl: false }); });
-  t.click('#fab'); t.escribir('#f_cat', 'gasolina');
+  [1, 2, 3].forEach(function (i) { S.expenses.push({ id: 'h' + i, ts: i, date: d, amt: 1000, cur: 'CRC', rate: 500, cat: 'comida', card: 'premia', merchant: '', note: '', intl: false }); });
+  t.click('#fab'); t.escribir('#f_cat', 'comida');
   assert.equal(t.$('#f_card').value, 'premia', 'Usa la tarjeta habitual de la categoría');
   t.cerrar();
 });
